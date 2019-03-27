@@ -3,26 +3,31 @@ class Env:
     NAgents = 2
     
     def reset(self, agents, random = False):
-        pass
+        self.Active = set()
+        return observations
         
-    def addAgent(self, agent, random = False):
-        pass
+    def addAgents(self, agents, random = False):
+        return observations
         
     def step(self, actions):
         # called once with actions for all active agents
         for agent, action in actions:
             if not agent.Done:
                 agent.apply_action(agent, action)
+            self.Active.add(agent)
         return [info]
         
     def feedback(self):
-        # called once at the end of the step
+        # called once at the end of the episode
         # for all agents, set agent.Done = done
-        return env_done, [(agent, new_observation, reward, done, info) for agent in active_agents]
+        feedback = [(agent, new_observation, reward, done, info) for agent in self.Active]
+        self.Active = set()
+        return stop_episode, feedback
         
-    def randomMoves(self, size):
-        state0, action, state1, reward, done, info = self.Env.randomStep()
-        if self.TLimit:
-            done = done or random.random() * self.TLimit+1 < 1.0
-        return (state0, action, state1, reward, done, info)
+    def randomActions(self, size):
+        return [random_action]
     
+    def randomTransitions(self, size):
+        return 
+
+

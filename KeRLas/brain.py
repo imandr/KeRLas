@@ -28,18 +28,12 @@ class Brain(object):
     
     def __init__(self, env, rlmodel, policy, memory_size, random_mix, *params, **args):
         self.RLModel = rlmodel
-        self.QModel = rlmodel.QModel
-        self.TModel = rlmodel.TModel
         self.Policy = policy
         source = MixedDriver(env, self, random_mix)
         self.Memory = ReplayMemory(source, memory_size)
         
-    def create_rl_model(self, qmodel, model_type, gamma, *params, **args):
-        if model_type == "ddiff":
-            return DirectDiffModel(qmodel, gamma, *params, **args)
-        
     def q(self, observation):
-        return self.QModel.predict_on_batch(np.array([observation]))[0]
+        return self.RLModel.predict_on_batch([np.array([observation])])[0]
         
     def action(self, observation):
         q = self.q(observation)
@@ -47,7 +41,7 @@ class Brain(object):
         return a, q
 
     def training_model(self):
-        return self.TModel
+        return self.RLModel.training_model()
         
     def trainig_data_generator(self, mbsize):
         print "Brain.trainig_data_generator"

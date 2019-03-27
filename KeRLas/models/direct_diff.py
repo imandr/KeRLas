@@ -51,6 +51,6 @@ class DirectDiffModel(RLModel):
         mask = np.zeros((len(s0), n_actions))
         for i in xrange(n_actions):
             mask[action==i, i] = 1.0
-        print "DirectDiffModel.training_data: returning data"
+        #print "DirectDiffModel.training_data: returning data"
         return [s0, mask, s1, final], [reward]
 

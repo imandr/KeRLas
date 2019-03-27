@@ -14,6 +14,9 @@ class Env:
             (0.0, -1.0)
         ]
     ) * Delta
+    
+    def __init__(self, tlimit=100):
+        self.TLimit = self.T = tlimit
 
     def randomStates(self, n):
         return np.random.random((n,2))
@@ -22,9 +25,11 @@ class Env:
         return np.random.randint(0, self.NActions, n)
         
     def reset(self, agents, random=True):
+        self.T = self.TLimit
         states = self.randomStates(len(agents))
         for a, s in zip(agents, states):
             a._State = s
+        self.AllDone = False
         return states
         
     def step(self, agents_actions):
@@ -44,12 +49,15 @@ class Env:
                     agent.Done = True
                 else:
                     all_done = False
+                agent._State = s1
                 feedback.append((agent, s1, reward, done, {}))
-        self.Feedback = all_done, feedback
+        self.AllDone = all_done
+        self.Feedback = feedback
         
                 
     def feedback(self):
-        return self.Feedback
+        self.T -= 1
+        return (self.T <= 0 or self.AllDone), self.Feedback
     
         
         

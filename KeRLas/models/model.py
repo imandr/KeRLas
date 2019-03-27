@@ -28,6 +28,9 @@ class RLModel(object):
         qmodel._make_predict_function()
         self.TModel = self.create_trainig_model(qmodel, gamma, *params, **args)
         
+    def training_model(self):
+        return self.TModel
+        
     def fit_generator(self, generator, *params, **args):
         return self.TModel.fit_generator(
                 (self.training_data(*data) for data in generator), 

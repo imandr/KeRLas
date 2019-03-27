@@ -35,9 +35,9 @@ class CompoundModel(object):
                 
         return self.TModel.fit_generator(augment_data(generator), *params, **args)
         
-    def predict_on_batch(self, s):
-        return self.QModel.predict_on_batch(s)
-        
+    def q(self, observation):
+        return self.QModel.predict_on_batch(np.array([observation]))[0]
+
     def __call__(self, *params, **kv):
         return self.QModel(*params, **kv)
         

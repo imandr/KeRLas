@@ -1,5 +1,6 @@
 import random
 import traceback
+import numpy as np
 
 class ReplayMemory(object):
     
@@ -39,16 +40,12 @@ class ReplayMemory(object):
     def generate_samples(self, mbsize):
         print "Memory: generate_samples"
         while True:
-            try:
-                sample = self.sample(mbsize)
-                columns = zip(*sample)
-                s0 = np.array(columns[0])
-                a = np.array(columns[1])
-                s1 = np.array(columns[2])
-                r = np.array(columns[3])
-                f = np.array(columns[4])
-                yield s0, a, s1, r, f
-            except:
-                traceback.print_exc()
-                raise
+            sample = self.sample(mbsize)
+            columns = zip(*sample)
+            s0 = np.array(columns[0])
+            a = np.array(columns[1])
+            s1 = np.array(columns[2])
+            r = np.array(columns[3])
+            f = np.array(columns[4])
+            yield s0, a, s1, r, f
             
