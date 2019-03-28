@@ -38,7 +38,7 @@ class ReplayMemory(object):
         return s
         
     def generate_samples(self, mbsize):
-        print "Memory: generate_samples"
+        #print "Memory: generate_samples"
         while True:
             sample = self.sample(mbsize)
             columns = zip(*sample)

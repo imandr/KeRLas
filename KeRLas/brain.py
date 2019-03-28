@@ -15,8 +15,8 @@ def defaultQModel(inp_width, out_width):
     
     inp = Input((inp_width,), name="qmodel_input")
     
-    dense1 = Dense(inp_width*10, activation="softplus")(inp)
-    dense2 = Dense(out_width*10, activation="softplus")(dense1)
+    dense1 = Dense(inp_width*20, activation="tanh")(inp)
+    dense2 = Dense(out_width*20, activation="softplus")(dense1)
     
     out = Dense(out_width, activation="linear")(dense2)
     
@@ -44,7 +44,7 @@ class Brain(object):
         return self.RLModel.training_model()
         
     def trainig_data_generator(self, mbsize):
-        print "Brain.trainig_data_generator"
+        #print "Brain.trainig_data_generator"
         for data in self.Memory.generate_samples(mbsize):
             yield self.RLModel.training_data(*data)
         #return (
