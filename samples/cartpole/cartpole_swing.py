@@ -4,7 +4,7 @@ Copied from http://incompleteideas.net/sutton/book/code/pole.c
 permalink: https://perma.cc/C9ZM-652R
 """
 
-import math
+import math, random
 import gym
 from gym import spaces, logger
 from gym.utils import seeding
@@ -24,10 +24,11 @@ class CartPoleSwingEnv(gym.Env):
         self.length = 0.5 # actually half the pole's length
         self.polemass_length = (self.masspole * self.length)
         self.force_mag = 10.0
+        self.forces = np.array([0.0, -self.force_mag/2, self.force_mag/2, -self.force_mag*2, self.force_mag*2])
         self.tau = 0.02  # seconds between state updates
 
         # Angle at which to fail the episode
-        self.theta_threshold_radians = 12 * 2 * math.pi / 360
+        self.theta_threshold_radians = 1 * 2 * math.pi / 360
         self.x_threshold = 9.6
 
         # Angle limit set to 2 * theta_threshold_radians so failing observation is still within bounds
@@ -37,7 +38,7 @@ class CartPoleSwingEnv(gym.Env):
             self.theta_threshold_radians * 2,
             np.finfo(np.float32).max])
 
-        self.action_space = spaces.Discrete(2)
+        self.action_space = spaces.Discrete(5)
         self.observation_space = spaces.Box(-high, high)
 
         self.seed()
@@ -54,7 +55,8 @@ class CartPoleSwingEnv(gym.Env):
         assert self.action_space.contains(action), "%r (%s) invalid"%(action, type(action))
         state = self.state
         x, x_dot, theta, theta_dot = state
-        force = self.force_mag if action==1 else -self.force_mag
+        
+        force = self.forces[action]
         costheta = math.cos(theta)
         sintheta = math.sin(theta)
         temp = (force + self.polemass_length * theta_dot * theta_dot * sintheta) / self.total_mass
@@ -71,31 +73,18 @@ class CartPoleSwingEnv(gym.Env):
             theta += math.pi * 2
         
         self.state = (x,x_dot,theta,theta_dot)
-        done =  x < -self.x_threshold \
-                or x > self.x_threshold
-        done = bool(done)
+        out = abs(x) > self.x_threshold
         
-        nice = abs(x) < self.x_threshold \
-            and abs(theta) < self.theta_threshold_radians/10.0 \
-            and abs(x_dot) < 0.1
-
-        if not done:
+        if not out:
+            nice = abs(theta) < self.theta_threshold_radians #and abs(x_dot) < 0.1
             reward = 1.0 if nice else 0.0
-        elif self.steps_beyond_done is None:
-            # Pole just fell!
-            self.steps_beyond_done = 0
-            reward = -1.0
         else:
-            if self.steps_beyond_done == 0:
-                raise ValueError("Step beyond done")
-                logger.warn("You are calling 'step()' even though this environment has already returned done = True. You should always call 'reset()' once you receive 'done = True' -- any further steps are undefined behavior.")
-            self.steps_beyond_done += 1
-            reward = -1.0
+            reward = 0.0
 
-        return np.array(self.state), reward, done, {}
+        return np.array(self.state), reward, out, {}
 
     def reset(self):
-        self.state = np.array([0.0, 0.0, math.pi, 0.0])
+        self.state = np.array([0.0, (random.random()*2-1)*0.1, math.pi, (random.random()*2-1)*0.1])
         self.steps_beyond_done = None
         return np.array(self.state)
 
