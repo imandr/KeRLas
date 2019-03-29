@@ -70,9 +70,13 @@ class CartPoleEnv(gym.Env):
                 or theta < -self.theta_threshold_radians \
                 or theta > self.theta_threshold_radians
         done = bool(done)
+        
+        nice = abs(x) < self.x_threshold \
+            and abs(theta) < self.theta_threshold_radians/10.0 \
+            and abs(x_dot) < 0.1
 
         if not done:
-            reward = 0.0
+            reward = 1.0 if nice else 0.0
         elif self.steps_beyond_done is None:
             # Pole just fell!
             self.steps_beyond_done = 0
@@ -87,7 +91,7 @@ class CartPoleEnv(gym.Env):
         return np.array(self.state), reward, done, {}
 
     def reset(self):
-        self.state = self.np_random.uniform(low=-0.05, high=0.05, size=(4,))
+        self.state = self.np_random.uniform(low=-0.08, high=0.08, size=(4,))
         self.steps_beyond_done = None
         return np.array(self.state)
 
@@ -134,7 +138,7 @@ class CartPoleEnv(gym.Env):
         cartx = x[0]*scale+screen_width/2.0 # MIDDLE OF CART
         self.carttrans.set_translation(cartx, carty)
         self.poletrans.set_rotation(-x[2])
-
+        
         return self.viewer.render(return_rgb_array = mode=='rgb_array')
 
     def close(self):

@@ -1,39 +1,22 @@
 from .agent import Agent
+from .gym_env import TimedGymEnv
 
-class Driver(object):
-    
-    def __init__(self, env, brain, nagents):
-        self.Env = env
-        self.Brain = brain
-        self.NAgents = nagents or env.NAgents
-    
-    def sample(self, n):
-        raise NotImplementedError
-
-class RandomDriver(Driver):
-    
-    def __init__(self, env, brain, nagents = None):
-        Driver.__init__(self, env, brain, nagents)
-    
-    def samples(self, size):
-        samples = []
-        while len(samples) < size:
-            agents = [Agent(self.Env, self.Brain) for _ in xrange(self.NAgents)]
-            observations = self.Env.reset(agents, random=True)
-            actions = self.Env.randomActions(size)
-            self.Env.step(zip(agents, actions))
-            env_done, feedback = self.Env.feedback()
-            samples += [(s0, a, s1, r, f) for s0, a, (_, s1, r, f, _) in zip(observations, actions, feedback)]
-        return samples
-        
 class Player(object):
     
-    def __init__(self, env, brain, nagents = None, callback=None):
-        self.NAgents = nagents or env.NAgents
-        self.Brain = brain
+    def __init__(self, env, brain, nagents = None, callback = None):
         self.Env = env
+        self.Brain = brain
+        self.NAgents = 1            # for now
         self.Callback = callback
-        
+    
+    def gameSamples(self, size):
+        samples = []
+        while len(samples) < size:
+            samples += self.runEpisode()
+        return samples
+
+class MultiPlayer(Player):
+    
     def runEpisode(self):
         record = []
         active_agents = [Agent(self.Env, self.Brain) for _ in xrange(self.NAgents)]
@@ -49,7 +32,7 @@ class Player(object):
         after_init = env.Env.steps_beyond_done
 
             
-        #if self.Callback is not None:   self.Callback.onEpisodeBegin(env, active_agents, observations)
+        if self.Callback is not None:   self.Callback.onEpisodeBegin(env, active_agents, observations)
         after_callback = env.Env.steps_beyond_done
         env_done = False
         t = 0
@@ -63,7 +46,7 @@ class Player(object):
             agent_actions = [(a, a.action()) for a in active_agents]
             before_step = env.Env.steps_beyond_done
             try:    
-                infos = self.Env.step(agent_actions)
+                step_infos = self.Env.step(agent_actions)
                 after_last_step = env.Env.steps_beyond_done
             except Exception as e:
                 print "Exception:", e
@@ -87,7 +70,7 @@ class Player(object):
                 else:
                     new_active_agents.append(agent)
 
-            if self.Callback is not None:   self.Callback.onStep(env, env_done, active_agents, infos, feedback)
+            if self.Callback is not None:   self.Callback.onStep(env, env_done, step_infos, feedback)
 
             active_agents = new_active_agents
             end_of_loop = env.Env.steps_beyond_done
@@ -96,28 +79,61 @@ class Player(object):
 
         return record
         
-        
-class GameDriver(Driver):
-    
-    def __init__(self, env, brain, nagents = None):
-        Driver.__init__(self, env, brain, nagents)
-        self.Player = Player(env, brain, nagents = nagents)
-    
-    def samples(self, size):
+    def randomSamples(self, size):
         samples = []
         while len(samples) < size:
-            samples += self.Player.runEpisode()
+            agents = [Agent(self.Env, self.Brain) for _ in xrange(self.NAgents)]
+            observations = self.Env.reset(agents, random=True)
+            actions = self.Env.randomActions(size)
+            self.Env.step(zip(agents, actions))
+            env_done, feedback = self.Env.feedback()
+            samples += [(s0, a, s1, r, f) for s0, a, (_, s1, r, f, _) in zip(observations, actions, feedback)]
         return samples
+
+
+class GymPlayer(Player):
+    """
+        Player for Gym single agent environments
+    """
+
+    def runEpisode(self):
+        record = []
+        agent = Agent(self.Env, self.Brain)
+        env = self.Env
+        observation = env.reset()
+        agent.init(observation)
+        if self.Callback is not None:   self.Callback.onEpisodeBegin(env, [agent], [observation])
+            
+        done = False
+        while not done:
+            action = agent.action()
+            new_observation, reward, done, info = env.step(action)
+            agent.step(new_observation, reward, done)
+            if self.Callback is not None:   self.Callback.onStep(env, done, [(agent, new_observation, reward, done, info)])
+        record = agent.trajectory(clear=True)
+        #print "gym episode done:", len(record)
+        if self.Callback is not None:   self.Callback.onEpisodeEnd(env, record)
+
+        return record
+
+    def randomSamples(self, size):
+        samples = []
+        while len(samples) < size:
+            o = self.Env.reset(random=True)
+            a = self.Env.randomAction()
+            o1, r, done, info = self.Env.step(a)
+            samples.append((o, a, o1, r, done))
+        return samples
+
         
-class MixedDriver(Driver):
+class MixedDriver(object):
     def __init__(self, env, brain, random_fraction = 0.0, chunk = 100):
         self.RandomFraction = random_fraction
         self.NGeneratedRandom = 0
         self.NGeneratedGame = 0
         self.Env = env
         self.Brain = brain
-        self.GameDriver = GameDriver(env, brain, nagents = 1)       # nagents = 1 for now
-        self.RandomDriver = RandomDriver(env, brain)
+        self.Player = GymPlayer(env, brain) if isinstance(env, TimedGymEnv) else MultiPlayer(env, brain)       # nagents = 1 for now
         self.ChunkSize = chunk
         
     def chunk(self):
@@ -127,10 +143,10 @@ class MixedDriver(Driver):
             current_fraction = float(self.NGeneratedRandom)/float(ntotal)
             generate_random = current_fraction < self.RandomFraction
         if generate_random:
-            samples = self.RandomDriver.samples(self.ChunkSize)
+            samples = self.Player.randomSamples(self.ChunkSize)
             self.NGeneratedRandom += len(samples)
         else:
-            samples = self.GameDriver.samples(self.ChunkSize)
+            samples = self.Player.gameSamples(self.ChunkSize)
             self.NGeneratedGame += len(samples)
         return samples
         

@@ -8,19 +8,16 @@ from keras.optimizers import Adam, Adagrad, Adadelta
 import keras.backend as K
 
 
-def qmodel(inp_width, out_width):
-    
-    inp = Input((inp_width,))
-    
-    dense1 = Dense(inp_width*40, activation="tanh")(inp)
-    dense2 = Dense(out_width*40, activation="softplus")(dense1)
-    
-    out = Dense(out_width, activation="linear")(dense2)
-    
-    model=Model(inputs=[inp], outputs=[out])
-    model.compile(Adam(lr=1e-3), ["mse"])
-    return model
-    
+def BellmanDifferential(q0, mask, q1, final, gamma):
+    def differential(args):
+        q0, mask, q1, final = args
+        q0 = K.sum(q0*mask, axis=-1)[:,None]
+        q1max = K.max(q1, axis=-1)[:,None]
+        reward = q0 - (1.0-final) * gamma * q1max
+        return reward
+    return Lambda(differential)([q0, mask, q1, final])
+
+
 class RLModel(object):
     
     def __init__(self, qmodel, gamma, *params, **args):

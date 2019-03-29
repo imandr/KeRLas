@@ -7,7 +7,7 @@ from keras.layers import Dense, Activation, Flatten, Input, Lambda
 from keras.optimizers import Adam, Adagrad, Adadelta
 import keras.backend as K
 
-from model import RLModel
+from model import RLModel, BellmanDifferential
         
 class NaiveQModel(RLModel):
     
@@ -25,22 +25,10 @@ class NaiveQModel(RLModel):
         mask = Input(shape=q_shape, name="tmodel_input_mask")
         s0 = Input(shape=x_shape, name="tmodel_input_s0")
         q1i = Input(shape=q_shape, name="tmodel_input_q1i")
-    
-        #
-        # Q(s0,i) = r + gamma * max_j(Q(s1,j))
-        # Q(s0,i) - gamma * max_j(Q(s1,j)) -> r
-        #
-    
+        
         q0 = qmodel(s0)
     
-        def differential(args):
-            q0, mask, q1, final = args
-            q0 = K.sum(q0*mask, axis=-1)[:,None]
-            q1max = K.max(q1, axis=-1)[:,None]
-            reward = q0 - (1.0-final) * gamma * q1max
-            return reward
-    
-        out = Lambda(differential)([q0, mask, q1i, final])
+        out = BellmanDifferential(q0, mask, q1i, final, gamma)
         model = Model(inputs=[s0, mask, q1i, final], outputs=[out])
         model.compile(Adam(lr=1e-3), ["mse"])
         return model

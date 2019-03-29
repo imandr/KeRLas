@@ -1,6 +1,6 @@
 import gym, random, numpy as np
 
-class GymEnv:
+class MultiGymEnv(object):
     #
     # Convert 1-agent Gym environment into a multi-agent environment
     #
@@ -58,4 +58,43 @@ class GymEnv:
     def __getattr__(self, name):
         return getattr(self.Env, name)
         
+class TimedGymEnv(object):
     
+    def __init__(self, env, tlimit=None, random_observation_space=None):
+        if isinstance(env, str):
+            env = gym.make(env)
+        self.TLimit = tlimit
+        self.Env = env
+        self.RandomObservationSpace = random_observation_space
+        self.T = self.TLimit = tlimit
+
+    def reset(self, random=False):
+        self.T = self.TLimit
+        state = self.Env.reset()
+        if random:
+            state = self.randomStates(1)[0]
+            self.Env.state = state
+        return state
+        
+    def step(self, action):
+        obs, reward, done, info = self.Env.step(action)
+        if self.T is not None:
+            self.T -= 1
+            if self.T <= 0:
+                done = True
+        return obs, reward, done, info
+        
+    def randomStates(self, n):
+        space = self.RandomObservationSpace or self.Env.observation_space
+        return np.array([space.sample() for _ in xrange(n)])
+    
+    def randomActions(self, n):
+        return np.array([self.Env.action_space.sample() for _ in xrange(n)])
+        
+    def randomAction(self):
+        return self.randomActions(1)[0]
+        
+    def __getattr__(self, name):
+        return getattr(self.Env, name)
+    
+        
