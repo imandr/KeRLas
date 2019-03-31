@@ -6,30 +6,51 @@ from keras.models import Model
 from keras.layers import Dense, Activation, Flatten, Input, Lambda
 from keras.optimizers import Adam
 
-from .drivers import MixedDriver
-from .memory import ReplayMemory
+from .player import MixedPlayer
 
-from models import DirectDiffModel
+class TrainingContext(object):
+    
+    def __init__(self, brain, in_traning):
+        self.Brain = brain
+        self.Flag = in_traning
+        self.SavedTraining = None
+        
+    def __enter__(self):
+        self.SavedTraining = self.Brain.Training
+        self.Brain.setTraining(self.Flag)
+        
+    def __exit__(self, *params):
+        self.Brain.setTraining(self.SavedTraining)
 
-def defaultQModel(inp_width, out_width):
-    
-    inp = Input((inp_width,), name="qmodel_input")
-    
-    dense1 = Dense(inp_width*20, activation="tanh")(inp)
-    dense2 = Dense(out_width*20, activation="softplus")(dense1)
-    
-    out = Dense(out_width, activation="linear")(dense2)
-    
-    model=Model(inputs=[inp], outputs=[out])
-    model.compile(Adam(lr=1e-3), ["mse"])
-    return model
-    
 class Brain(object):
     
-    def __init__(self, rlmodel, policy):
+    def __init__(self, rlmodel, run_policy, training_policies = None):
         self.RLModel = rlmodel
-        self.Policy = policy
+        self.RunPolicy = run_policy
+        self.Training = False
+        self.TrainingPolicies = training_policies or [run_policy]
+        self.TrainingPolicyIndex = 0
+        self.Policy = self.RunPolicy
         
+    def training(self, in_traning):
+        return TrainingContext(self, in_traning)
+        
+    def nextTrainingPolicy(self):
+        self.TrainingPolicyIndex = (self.TrainingPolicyIndex + 1) % len(self.TrainingPolicies) 
+        
+    def setTraining(self, training):
+        self.Training = training
+        self.TrainingPolicyIndex = 0
+        
+    def episodeBegin(self):
+        if self.Training:
+            self.Policy = self.TrainingPolicies[self.TrainingPolicyIndex]
+        else:
+            self.Policy = self.RunPolicy
+            
+    def episodeEnd(self):
+        pass
+            
     def q(self, observation):
         return self.RLModel.predict_on_batch([np.array([observation])])[0]
         
@@ -41,10 +62,13 @@ class Brain(object):
         a = self.Policy(q)
         return a, q
 
-    def episodeBegin(self):
-        pass
+    def training_model(self):
+        return self.RLModel.training_model()
         
-    def episodeEnd(self):
-        return {}
+    def train_on_sample(self, sample):
+        return self.RLModel.train_on_sample(sample)
+        
+    def training_data(self, sample):
+        return self.RLModel.training_data(sample)
         
         

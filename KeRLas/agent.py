@@ -14,7 +14,7 @@ class Agent:
     def init(self, observation):
         self.Trajectory = []
         self.Observation = observation
-        return self.Brain.episodeBegin()
+        return {}
     
     def action(self):
         #print "Agent.action: observation=", self.Observation
@@ -30,8 +30,7 @@ class Agent:
         self.Observation = new_observation
 
     def end(self):
-        info = self.Brain.episodeEnd()
-        return self.Trajectory, info
+        return self.Trajectory, {}
 
     def info(self):
         return {

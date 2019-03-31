@@ -1,5 +1,5 @@
 import numpy as np
-from tools import clone_model, AdditionalUpdatesOptimizer, get_soft_target_model_updates
+from .tools import clone_model, AdditionalUpdatesOptimizer, get_soft_target_model_updates
 
 from keras.models import Model
 from keras.layers import Input, Lambda

@@ -1,7 +1,5 @@
 import numpy as np
 
-np.set_printoptions(precision=4, suppress=True)
-
 from keras.models import Model
 from keras.layers import Dense, Activation, Flatten, Input, Lambda
 from keras.optimizers import Adam, Adagrad, Adadelta
