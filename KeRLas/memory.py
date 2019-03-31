@@ -11,6 +11,7 @@ class ReplayMemory(object):
         self.HighWater = high_water_mark or int(low_water_mark * 2)
         self.RefreshRate = 0.1
         self.Cursor = 0
+        self.Age = 0
 
     def fill(self, n):
         if len(self.Memory) - self.Cursor < n:
@@ -25,6 +26,7 @@ class ReplayMemory(object):
 
     def addSamples(self, samples):
         assert isinstance(sample, list)
+        self.Age += 1
         self.Memory = self.Memory + samples
         if len(self.Memory) > self.HighWater:
             self.Memory = self.Memory[-self.HighWater:]

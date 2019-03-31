@@ -48,13 +48,11 @@ class RLModel(object):
     def training_model(self):
         return self.TModel
         
-<<<<<<< HEAD
-=======
-    def fit_generator(self, generator, *params, **args):
-        return self.TModel.fit_generator(
-                (self.training_data(*data) for data in generator), 
-                *params, **args
-        )
+    #def fit_generator(self, generator, *params, **args):
+    #    return self.TModel.fit_generator(
+    #            (self.training_data(*data) for data in generator), 
+    #            *params, **args
+    #    )
     
     def train_on_sample(self, sample):
         # sample is a list of tuples (s0,a,s1,r,f)
@@ -62,7 +60,6 @@ class RLModel(object):
         x, y_ = self.training_data(*sasrf)
         return self.TModel.train_on_batch(x, y_)
     
->>>>>>> step-back
     def predict_on_batch(self, *params, **args):
         return self.QModel.predict_on_batch(*params, **args)
         
