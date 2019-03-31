@@ -1,13 +1,11 @@
 import numpy as np
 
-np.set_printoptions(precision=4, suppress=True)
-
 from keras.models import Model
 from keras.layers import Input, Lambda
 from keras.optimizers import Adam, Adagrad, Adadelta
 #import keras.backend as K
 
-from model import RLModel, BellmanDifferential
+from .model import RLModel, BellmanDifferential
         
 class DirectDiffModel(RLModel):
     

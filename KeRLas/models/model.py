@@ -1,13 +1,23 @@
 import numpy as np
 
-np.set_printoptions(precision=4, suppress=True)
-
 from keras.models import Model
 from keras.layers import Dense, Activation, Flatten, Input, Lambda
 from keras.optimizers import Adam, Adagrad, Adadelta
 import keras.backend as K
 
-
+def defaultQModel(inp_width, out_width):
+    
+    inp = Input((inp_width,), name="qmodel_input")
+    
+    dense1 = Dense(inp_width*20, activation="tanh")(inp)
+    dense2 = Dense(out_width*20, activation="softplus")(dense1)
+    
+    out = Dense(out_width, activation="linear")(dense2)
+    
+    model=Model(inputs=[inp], outputs=[out])
+    model.compile(Adam(lr=1e-3), ["mse"])
+    return model
+    
 def BellmanDifferential(q0, mask, q1, final, gamma):
     def differential(args):
         q0, mask, q1, final = args
@@ -33,7 +43,13 @@ class RLModel(object):
                 (self.training_data(*data) for data in generator), 
                 *params, **args
         )
-        
+    
+    def train_on_sample(self, sample):
+        # sample is a list of tuples (s0,a,s1,r,f)
+        sasrf = map(np.array, zip(*sample)[:5])
+        x, y_ = self.training_data(*sasrf)
+        return self.TModel.train_on_batch(x, y_)
+    
     def predict_on_batch(self, *params, **args):
         return self.QModel.predict_on_batch(*params, **args)
         

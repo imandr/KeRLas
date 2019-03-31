@@ -2,9 +2,8 @@ import numpy as np
 from keras.models import Model
 from keras.layers import Input, Lambda
 from keras.optimizers import Adam, Adagrad, Adadelta
-
 from model import RLModel, BellmanDifferential
-        
+
 class LateralDiffModel(RLModel):
     
     def __init__(self, qmodel, gamma, weight = 0.5):
