@@ -24,12 +24,12 @@ class CartPoleSwingEnv(gym.Env):
         self.length = 0.5 # actually half the pole's length
         self.polemass_length = (self.masspole * self.length)
         self.force_mag = 10.0
-        self.forces = np.array([0.0, -self.force_mag/2, self.force_mag/2, -self.force_mag*2, self.force_mag*2])
+        self.forces = np.array([0.0, -self.force_mag/5, self.force_mag/5, -self.force_mag, self.force_mag])
         self.tau = 0.02  # seconds between state updates
 
         # Angle at which to fail the episode
         self.theta_threshold_radians = 1 * 2 * math.pi / 360
-        self.x_threshold = 9.6
+        self.x_threshold = 4.8
 
         # Angle limit set to 2 * theta_threshold_radians so failing observation is still within bounds
         high = np.array([
@@ -79,7 +79,7 @@ class CartPoleSwingEnv(gym.Env):
             nice = abs(theta) < self.theta_threshold_radians #and abs(x_dot) < 0.1
             reward = 1.0 if nice else 0.0
         else:
-            reward = 0.0
+            reward = -1.0
 
         return np.array(self.state), reward, out, {}
 
@@ -89,7 +89,7 @@ class CartPoleSwingEnv(gym.Env):
         return np.array(self.state)
 
     def render(self, mode='human'):
-        screen_width = 2400
+        screen_width = 1200
         screen_height = 400
 
         world_width = self.x_threshold*2

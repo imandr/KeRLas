@@ -14,6 +14,9 @@ class Player(object):
         while len(samples) < size:
             samples += self.runEpisode()
         return samples
+        
+    def randomSamples(self, size):
+        raise NotImplementedError
 
 class MultiPlayer(Player):
     
@@ -126,9 +129,9 @@ class GymPlayer(Player):
         return samples
 
         
-class MixedDriver(object):
-    def __init__(self, env, brain, random_fraction = 0.0, chunk = 100):
-        self.RandomFraction = random_fraction
+class MixedPlayer(object):
+    def __init__(self, env, brain, random_mix = 0.0, chunk = 100):
+        self.RandomFraction = random_mix
         self.NGeneratedRandom = 0
         self.NGeneratedGame = 0
         self.Env = env

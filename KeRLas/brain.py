@@ -26,31 +26,21 @@ def defaultQModel(inp_width, out_width):
     
 class Brain(object):
     
-    def __init__(self, env, rlmodel, policy, memory_size, random_mix, *params, **args):
+    def __init__(self, rlmodel, policy):
         self.RLModel = rlmodel
         self.Policy = policy
-        source = MixedDriver(env, self, random_mix)
-        self.Memory = ReplayMemory(source, memory_size)
         
     def q(self, observation):
         return self.RLModel.predict_on_batch([np.array([observation])])[0]
+        
+    def train_on_samples(self, samples):
+        return self.RLModel.train_on_samples(samples)
         
     def action(self, observation):
         q = self.q(observation)
         a = self.Policy(q)
         return a, q
 
-    def training_model(self):
-        return self.RLModel.training_model()
-        
-    def trainig_data_generator(self, mbsize):
-        #print "Brain.trainig_data_generator"
-        for data in self.Memory.generate_samples(mbsize):
-            yield self.RLModel.training_data(*data)
-        #return (
-        #    self.RLModel.training_data(*data) for data in self.Memory.generate_samples(mbsize)
-        #)
-        
     def episodeBegin(self):
         pass
         

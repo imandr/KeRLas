@@ -1,11 +1,6 @@
-import numpy as np
-
-np.set_printoptions(precision=4, suppress=True)
-
-from keras.models import Model
-from keras.layers import Dense, Activation, Flatten, Input, Lambda
-from keras.optimizers import Adam, Adagrad, Adadelta
+from keras.layers import Lambda
 import keras.backend as K
+import numpy as np
 
 
 def BellmanDifferential(q0, mask, q1, final, gamma):
@@ -24,15 +19,17 @@ class RLModel(object):
         self.QModel = qmodel
         qmodel._make_predict_function()
         self.TModel = self.create_trainig_model(qmodel, gamma, *params, **args)
+
+    def train_on_samples(self, samples):
+        columns = zip(*samples)
+        columns = map(np.array, columns[:5])
+        x, y_ = self.training_data(*columns)
+        #print type(x), x
+        #print type(y_), y_
+        self.TModel.train_on_batch(x, y_)
         
     def training_model(self):
         return self.TModel
-        
-    def fit_generator(self, generator, *params, **args):
-        return self.TModel.fit_generator(
-                (self.training_data(*data) for data in generator), 
-                *params, **args
-        )
         
     def predict_on_batch(self, *params, **args):
         return self.QModel.predict_on_batch(*params, **args)
