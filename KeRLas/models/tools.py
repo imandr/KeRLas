@@ -36,6 +36,7 @@ def get_soft_target_model_updates(target, source, tau):
     target_weights = target.trainable_weights + sum([l.non_trainable_weights for l in target.layers], [])
     source_weights = source.trainable_weights + sum([l.non_trainable_weights for l in source.layers], [])
     assert len(target_weights) == len(source_weights)
+    #print len(target_weights), len(source_weights)
 
     # Create updates.
     updates = [K.update(tw, tw + tau*(sw-tw)) for tw, sw in zip(target_weights, source_weights)]
