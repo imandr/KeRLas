@@ -13,8 +13,9 @@ def defaultQModel(inp_width, out_width):
     
     dense1 = Dense(inp_width*20, activation="tanh")(inp)
     dense2 = Dense(out_width*20, activation="softplus")(dense1)
+    dense3 = Dense(out_width*20, activation="softplus")(dense2)
     
-    out = Dense(out_width, activation="linear")(dense2)
+    out = Dense(out_width, activation="linear")(dense3)
     
     model=Model(inputs=[inp], outputs=[out])
     model.compile(Adam(lr=1e-3), ["mse"])

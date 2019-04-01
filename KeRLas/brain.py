@@ -35,21 +35,22 @@ class Brain(object):
     def training(self, in_traning):
         return TrainingContext(self, in_traning)
         
-    def nextTrainingPolicy(self):
-        self.TrainingPolicyIndex = (self.TrainingPolicyIndex + 1) % len(self.TrainingPolicies) 
-        
     def setTraining(self, training):
         self.Training = training
-        self.TrainingPolicyIndex = 0
         
     def episodeBegin(self):
         if self.Training:
             self.Policy = self.TrainingPolicies[self.TrainingPolicyIndex]
+            #print "Brain.episodeBegin: index, tau=", self.TrainingPolicyIndex, self.Policy.tau
         else:
             self.Policy = self.RunPolicy
             
     def episodeEnd(self):
         pass
+            
+    def nextTrainingPolicy(self):
+        self.TrainingPolicyIndex = (self.TrainingPolicyIndex + 1) % len(self.TrainingPolicies) 
+        #print "Brain.nextTrainingPolicy:", self.TrainingPolicyIndex
             
     def q(self, observation):
         return self.RLModel.predict_on_batch([np.array([observation])])[0]

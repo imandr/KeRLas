@@ -9,22 +9,22 @@ class Player(object):
         self.NAgents = 1            # for now
         self.Callback = callback
     
-    def gameSamples(self, size):
+    def gameSample(self, size):
         samples = []
         while len(samples) < size:
             samples += self.runEpisode()
         return samples
         
-    def randomSamples(self, size):
+    def randomSample(self, size):
         raise NotImplementedError
 
 class MultiPlayer(Player):
     
     def runEpisode(self):
         record = []
-        self.Brain.episodeBegin()
         active_agents = [Agent(self.Env, self.Brain) for _ in xrange(self.NAgents)]
         env = self.Env
+        self.Brain.episodeBegin()
         observations = env.reset(active_agents)
         
         for agent, observation in zip(active_agents, observations):
@@ -35,7 +35,6 @@ class MultiPlayer(Player):
         t = 0
         feedback = None
         while not env_done and len(active_agents):
-            begin_of_loop = env.Env.steps_beyond_done
             agent_actions = [(a, a.action()) for a in active_agents]
             step_infos = self.Env.step(agent_actions)
             env_done, feedback = self.Env.feedback()
@@ -52,14 +51,13 @@ class MultiPlayer(Player):
             if self.Callback is not None:   self.Callback.onStep(env, env_done, step_infos, feedback)
 
             active_agents = new_active_agents
-            end_of_loop = env.Env.steps_beyond_done
             
         self.Brain.episodeEnd()
         if self.Callback is not None:   self.Callback.onEpisodeEnd(env, record)
 
         return record
         
-    def randomSamples(self, size):
+    def randomSample(self, size):
         samples = []
         while len(samples) < size:
             agents = [Agent(self.Env, self.Brain) for _ in xrange(self.NAgents)]
@@ -78,9 +76,9 @@ class GymPlayer(Player):
 
     def runEpisode(self):
         record = []
-        self.Brain.episodeBegin()
         agent = Agent(self.Env, self.Brain)
         env = self.Env
+        self.Brain.episodeBegin()
         observation = env.reset()
         agent.init(observation)
         if self.Callback is not None:   self.Callback.onEpisodeBegin(env, [agent], [observation])
@@ -98,7 +96,7 @@ class GymPlayer(Player):
 
         return record
 
-    def randomSamples(self, size):
+    def randomSample(self, size):
         samples = []
         while len(samples) < size:
             o = self.Env.reset(random=True)
@@ -125,14 +123,15 @@ class MixedPlayer(object):
             current_fraction = float(self.NGeneratedRandom)/float(ntotal)
             generate_random = current_fraction < self.RandomFraction
         if generate_random:
-            samples = self.Player.randomSamples(self.ChunkSize)
-            self.NGeneratedRandom += len(samples)
+            sample = self.Player.randomSample(self.ChunkSize)
+            self.NGeneratedRandom += len(sample)
         else:
-            samples = self.Player.gameSamples(self.ChunkSize)
-            self.NGeneratedGame += len(samples)
-        return samples
+            #print "Player: tau=", self.Brain.Policy.tau
+            sample = self.Player.gameSample(self.ChunkSize)
+            self.NGeneratedGame += len(sample)
+        return sample
         
-    def samples(self, size):
+    def sample(self, size):
         s = []
         while len(s) < size:
             s += self.chunk()

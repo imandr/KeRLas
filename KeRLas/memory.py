@@ -4,43 +4,43 @@ import numpy as np
 
 class ReplayMemory(object):
     
-    def __init__(self, source, low_water_mark, high_water_mark=None):
-        self.Memory = []
+    def __init__(self, source, capacity):
+        self.Memory = []        # list of tuples ((s,a,s,r,f), tag)
         self.Source = source        
-        self.LowWater = low_water_mark
-        self.HighWater = high_water_mark or int(low_water_mark * 2)
+        self.Capacity = capacity
+        self.LowWater = int(capacity * 0.9)
+        self.HighWater = capacity * 2
         self.RefreshRate = 0.1
         self.Cursor = 0
         self.Age = 0
+        self.RollingAge = 0.0
+        
+    FavorFinals = 0.5
 
     def fill(self, n):
-        if len(self.Memory) - self.Cursor < n:
+        
+        if len(self.Memory) < max(self.Cursor + n, self.LowWater):
             nflush = int(self.RefreshRate * self.Cursor)
             self.Memory = self.Memory[nflush:]
-            while len(self.Memory) < max(self.LowWater, n):
-                need = max(self.LowWater, n) - len(self.Memory)
-                sample = self.Source.samples(need)
-                self.Memory += sample
-            random.shuffle(self.Memory)    
+            
+            limit = max(n, self.HighWater)
+            
+            while len(self.Memory) < limit:
+                need = limit - len(self.Memory)
+                sample = self.Source.sample(need)
+                self.Memory += [(data, self.Age) for data in sample
+                            if data[-1] or random.random() < self.FavorFinals
+                        ]
+                self.Age += 1
+
+            random.shuffle(self.Memory)
             self.Cursor = 0      
 
-    def addSamples(self, samples):
-        assert isinstance(sample, list)
-        self.Age += 1
-        self.Memory = self.Memory + samples
-        if len(self.Memory) > self.HighWater:
-            self.Memory = self.Memory[-self.HighWater:]
-            random.shuffle(self.Memory)
-            self.Cursor = 0
-            
     def sample(self, n):
         self.fill(n)
         s = self.Memory[self.Cursor:self.Cursor+n]
+        for data, age in s:
+            self.RollingAge += 0.01 * (age - self.Age - self.RollingAge)
         self.Cursor += n
-        return s
+        return [data for data, age in s]
         
-    def generate_samples(self, mbsize):
-        #print "Memory: generate_samples"
-        while True:
-            yield self.sample(mbsize)
-            
