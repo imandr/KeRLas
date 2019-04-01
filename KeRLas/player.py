@@ -105,7 +105,6 @@ class GymPlayer(Player):
             samples.append((o, a, o1, r, done))
         return samples
 
-        
 class MixedPlayer(object):
     def __init__(self, env, brain, random_mix = 0.0, chunk = 100):
         self.RandomFraction = random_mix
@@ -124,17 +123,20 @@ class MixedPlayer(object):
             generate_random = current_fraction < self.RandomFraction
         if generate_random:
             sample = self.Player.randomSample(self.ChunkSize)
+            tag = {"random":True}
             self.NGeneratedRandom += len(sample)
         else:
-            #print "Player: tau=", self.Brain.Policy.tau
             sample = self.Player.gameSample(self.ChunkSize)
+            tag = {"random":False, "tau":self.Brain.Policy.tau}
+            #print "Player: tau=", self.Brain.Policy.tau, "   len=", len(sample)
             self.NGeneratedGame += len(sample)
-        return sample
+        return sample, tag
         
     def sample(self, size):
         s = []
         while len(s) < size:
-            s += self.chunk()
+            data, tag = self.chunk()
+            s += [(item, tag) for item in data]
         return s
         
         

@@ -8,39 +8,47 @@ class ReplayMemory(object):
         self.Memory = []        # list of tuples ((s,a,s,r,f), tag)
         self.Source = source        
         self.Capacity = capacity
-        self.LowWater = int(capacity * 0.9)
-        self.HighWater = capacity * 2
-        self.RefreshRate = 0.1
+        self.LowWater = int(capacity*0.75)
+        self.HighWater = self.Capacity
         self.Cursor = 0
         self.Age = 0
         self.RollingAge = 0.0
+        self.Buffered = 0
         
     FavorFinals = 0.5
-
-    def fill(self, n):
-        
-        if len(self.Memory) < max(self.Cursor + n, self.LowWater):
-            nflush = int(self.RefreshRate * self.Cursor)
-            self.Memory = self.Memory[nflush:]
-            
-            limit = max(n, self.HighWater)
-            
-            while len(self.Memory) < limit:
-                need = limit - len(self.Memory)
-                sample = self.Source.sample(need)
-                self.Memory += [(data, self.Age) for data in sample
-                            if data[-1] or random.random() < self.FavorFinals
-                        ]
-                self.Age += 1
-
+    
+    def addSample(self, sample):
+        for data, tag in sample:
+            tag["age"] = self.Age
+            self.Memory.append((data, tag))
+        self.Age += 1
+        if len(self.Memory) > self.HighWater:
+            self.Memory = self.Memory[-self.LowWater:]
             random.shuffle(self.Memory)
-            self.Cursor = 0      
+            self.Cursor = 0
+            
+    def fill(self, n):
+        assert n < self.LowWater
+        while self.Buffered < n:
+            in_sample = self.Source.sample(n - self.Buffered)
+            self.addSample(in_sample)
+            self.Buffered += len(in_sample)
+        assert self.Cursor + n <= len(self.Memory)
 
     def sample(self, n):
         self.fill(n)
         s = self.Memory[self.Cursor:self.Cursor+n]
-        for data, age in s:
-            self.RollingAge += 0.01 * (age - self.Age - self.RollingAge)
+        self.Buffered -= n
         self.Cursor += n
-        return [data for data, age in s]
+        tau_hist = {}
+        for data, tag in s:
+            tau = tag.get("tau", -1)
+            n = tau_hist.setdefault(tau, 0)
+            tau_hist[tau] = n + 1
+            age = tag["age"]
+            self.RollingAge += 0.01 * (age - self.Age - self.RollingAge)
+        if random.random() < 0.5:
+            print "tau_hist:", tau_hist
+            print [tag.get("tau", -1) for data, tag in s]
+        return [data for data, tag in s]
         
