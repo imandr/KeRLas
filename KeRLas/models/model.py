@@ -1,4 +1,4 @@
-import numpy as np
+import numpy as np, random
 
 from keras.models import Model
 from keras.layers import Dense, Activation, Flatten, Input, Lambda
@@ -38,14 +38,6 @@ class RLModel(object):
         qmodel._make_predict_function()
         self.TModel = self.create_trainig_model(qmodel, gamma, *params, **args)
 
-    def train_on_samples(self, samples):
-        columns = zip(*samples)
-        columns = map(np.array, columns[:5])
-        x, y_ = self.training_data(*columns)
-        #print type(x), x
-        #print type(y_), y_
-        self.TModel.train_on_batch(x, y_)
-        
     def training_model(self):
         return self.TModel
         
@@ -58,7 +50,10 @@ class RLModel(object):
     def train_on_sample(self, sample):
         # sample is a list of tuples (s0,a,s1,r,f)
         sasrf = map(np.array, zip(*sample)[:5])
+        #print "tarin_on_sample: sasrf:", sasrf
         x, y_ = self.training_data(*sasrf)
+        #print "   x:", x
+        #print "   y_:", y_
         return self.TModel.train_on_batch(x, y_)
     
     def predict_on_batch(self, *params, **args):

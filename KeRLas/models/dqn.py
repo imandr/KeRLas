@@ -58,7 +58,7 @@ class DQN(RLModel):
         trainable.compile(optimizer=optimizer, loss="mse")
         return trainable
 
-    def training_data(self, s0, action, s1, final, reward):
+    def training_data(self, s0, action, s1, reward, final):
         #print "training_data: s0:", type(s0), s0
         q1t = self.TargetModel.predict_on_batch(s0)
         q1 = np.max(q1t, axis=-1)

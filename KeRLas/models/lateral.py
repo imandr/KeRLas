@@ -38,7 +38,7 @@ class LateralDiffModel(RLModel):
         model.compile(Adam(lr=1e-3), ["mse"])
         return model
         
-    def training_data(self, s0, action, s1, final, reward):
+    def training_data(self, s0, action, s1, reward, final):
         n_actions = self.NActions
         q0i = self.QModel.predict_on_batch(s0)
         q1i = self.QModel.predict_on_batch(s1)

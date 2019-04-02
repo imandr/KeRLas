@@ -1,10 +1,10 @@
 import numpy as np, random
-from RLKeras import ReplayMemory
+#from RLKeras import ReplayMemory
 
 class Game(object):
     
     Delta = 0.1
-    NActions = 4
+    NActions = 2
     StateDim = 2
 
     Moves = np.array(

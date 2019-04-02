@@ -43,8 +43,8 @@ class MultiPlayer(Player):
             for agent, new_observation, reward, done, info in feedback:
                 agent.step(new_observation, reward, done)
                 if done:
-                    record += agent.trajectory(clear=True)
-                    agent.end()
+                    trajectory, info = agent.end()
+                    record += trajectory
                 else:
                     new_active_agents.append(agent)
 
@@ -75,7 +75,6 @@ class GymPlayer(Player):
     """
 
     def runEpisode(self):
-        record = []
         agent = Agent(self.Env, self.Brain)
         env = self.Env
         self.Brain.episodeBegin()
@@ -89,12 +88,12 @@ class GymPlayer(Player):
             new_observation, reward, done, info = env.step(action)
             agent.step(new_observation, reward, done)
             if self.Callback is not None:   self.Callback.onStep(env, done, [(agent, new_observation, reward, done, info)])
-        record = agent.trajectory(clear=True)
-        #print "gym episode done:", len(record)
+        trajectory, info = agent.end()
+        #print "gym episode done:", len(trajectory)
         self.Brain.episodeEnd()
-        if self.Callback is not None:   self.Callback.onEpisodeEnd(env, record)
-
-        return record
+        if self.Callback is not None:   self.Callback.onEpisodeEnd(env, trajectory, info)
+        #print "final record:", trajectory[-1]
+        return trajectory
 
     def randomSample(self, size):
         samples = []

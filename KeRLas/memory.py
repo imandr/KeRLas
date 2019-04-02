@@ -41,14 +41,18 @@ class ReplayMemory(object):
         self.Buffered -= n
         self.Cursor += n
         tau_hist = {}
+        nfinal = 0
         for data, tag in s:
             tau = tag.get("tau", -1)
             n = tau_hist.setdefault(tau, 0)
             tau_hist[tau] = n + 1
             age = tag["age"]
             self.RollingAge += 0.01 * (age - self.Age - self.RollingAge)
-        if random.random() < 0.5:
-            print "tau_hist:", tau_hist
-            print [tag.get("tau", -1) for data, tag in s]
+            if data[-1]:
+                nfinal += 1
+        #print "sample: %d of %d" % (nfinal, len(s))
+        #if random.random() < 0.5:
+        #    print "tau_hist:", tau_hist
+        #    print [tag.get("tau", -1) for data, tag in s]
         return [data for data, tag in s]
         

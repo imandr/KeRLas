@@ -31,7 +31,7 @@ class NaiveQModel(RLModel):
         model.compile(Adam(lr=1e-3), ["mse"])
         return model
         
-    def training_data(self, s0, action, s1, final, reward):
+    def training_data(self, s0, action, s1, reward, final):
         n_actions = self.NActions
         mask = np.zeros((len(s0), n_actions))
         for i in xrange(n_actions):

@@ -1,4 +1,4 @@
-import sys, math
+import sys, math, random
 import numpy as np
 
 import gym
@@ -54,28 +54,15 @@ VIEWPORT_H = 400
 SPACE_W = 20.0
 SPACE_H = float(VIEWPORT_H)/float(VIEWPORT_W)*SPACE_W
 
-class ContactDetector(contactListener):
-    def __init__(self, env):
-        contactListener.__init__(self)
-        self.env = env
-    def BeginContact(self, contact):
-        if self.env.lander==contact.fixtureA.body or self.env.lander==contact.fixtureB.body:
-            self.env.game_over = True
-        for i in range(2):
-            if self.env.legs[i] in [contact.fixtureA.body, contact.fixtureB.body]:
-                self.env.legs[i].ground_contact = True
-    def EndContact(self, contact):
-        for i in range(2):
-            if self.env.legs[i] in [contact.fixtureA.body, contact.fixtureB.body]:
-                self.env.legs[i].ground_contact = False
-
 class SimpleLander(gym.Env):
 
-    VIEWPORT_W = 600
-    VIEWPORT_H = 400
+    SCREEN_W = 600
+    SCREEN_H = 400
 
     SPACE_W = 20.0
-    SPACE_H = float(VIEWPORT_H)/float(VIEWPORT_W)*SPACE_W
+    SCALE = SCREEN_W/SPACE_W
+    SPACE_H = float(SCREEN_H)/SCALE
+    ZERO_Y = 30
     
     MAX_V = 10.0
     MAX_W = math.pi     # rad/sec
@@ -93,25 +80,18 @@ class SimpleLander(gym.Env):
         self.seed()
         self.viewer = None
 
-        self.world = Box2D.b2World()
-        self.moon = None
-        self.lander = None
-        self.particles = []
-
         self.prev_reward = None
+        self.action = None
+        self.state = None
+        self.crash = False
 
-        high = np.array([np.inf]*8)  # useful range is -1 .. +1, but spikes can be higher
+        high = np.array([np.inf]*6)  # useful range is -1 .. +1, but spikes can be higher
         
         self.observation_space = spaces.Box(-high, high)
 
-        if self.continuous:
-            # Action is two floats [main engine, left-right engines].
-            # Main engine: -1..0 off, 0..+1 throttle from 50% to 100% power. Engine can't work with less than 50% power.
-            # Left-right:  -1.0..-0.5 fire left engine, +0.5..+1.0 fire right engine, -0.5..0.5 off
-            self.action_space = spaces.Box(-1, +1, (2,))
-        else:
-            # Nop, fire left engine, main engine, right engine
-            self.action_space = spaces.Discrete(4)
+        self.action_space = spaces.Discrete(4)
+        
+        self.Body = None
 
         self.reset()
 
@@ -119,22 +99,10 @@ class SimpleLander(gym.Env):
         self.np_random, seed = seeding.np_random(seed)
         return [seed]
 
-    def _destroy(self):
-        if not self.moon: return
-        self.world.contactListener = None
-        self._clean_particles(True)
-        self.world.DestroyBody(self.moon)
-        self.moon = None
-        self.world.DestroyBody(self.lander)
-        self.lander = None
-        self.world.DestroyBody(self.legs[0])
-        self.world.DestroyBody(self.legs[1])
-        
     def iterate(self, state, dt, fx, fy, rot):
         x, y, vx, vy, phi, omega = state
         c, s = math.cos(phi), math.sin(phi)
-        fx = c*fx + s*fy
-        fy = c*fy - s*fx
+        fx, fy = c*fx - s*fy, c*fy + s*fx
         x += vx * dt
         y += vy * dt
         vy += (self.G + fy/self.MASS) * dt
@@ -146,57 +114,186 @@ class SimpleLander(gym.Env):
     def reset(self, wide = False):
         if wide:
             x = (random.random()*2-1)*self.SPACE_W/2
-            y = random.random()*self.SPACE_H
+            y = random.random()*self.SPACE_H*0.9
             vx = (random.random()*2-1)*self.MAX_V
             vy = (random.random()*2-1)*self.MAX_V
             phi = (random.random()*2-1)*math.pi
             omega = (random.random()*2-1)*self.MAX_W
         else:
             x = 0.0
-            y = self.SPACE_H*0.9
-            vx = (random.random()*2-1)*self.MAX_V/100.0
-            vy = (random.random()*2-1)*self.MAX_V/100.0
-            phi = (random.random()*2-1)*math.pi/100.0
-            omega = (random.random()*2-1)*self.MAX_W/100.0
-        return np.array([x,y,vx,vy,phi,omega])
-
+            y = self.SPACE_H*0.5
+            vx = (random.random()*2-1)*self.MAX_V/10.0
+            vy = (random.random()*2-1)*self.MAX_V/10.0
+            phi = (random.random()*2-1)*math.pi/20.0
+            omega = (random.random()*2-1)*self.MAX_W/20.0
+        self.state = np.array([x,y,vx,vy,phi,omega])
+        return self.state
+        
     FX = [0.0, 0.0, -0.1, 0.1]
-    FY = [0.0, 1.0, 0.0, 0.0]
-    ROT = [0.0, 0.0, -0.1, 0.1]
+    FY = [0.0, 4.0, 0.0, 0.0]
+    ROT = [0.0, 0.0, -0.4, 0.4]
     
-    SOFT_LANDING_V = 0.01
-    SOFT_LANDING_W = 0.01
+    SOFT_LANDING_V = 1.0
+    SOFT_LANDING_W = 1.0
+    SOFT_LANDING_ANGLE  = 15.0*math.pi/180
     LANDING_TARGET_WIDTH = 1.0
-    SOFT_LANDING_ANGLE  = 5.0*math.pi/180
     
     def step(self, action):
         state = self.state
+        x0, y0, vx0, vy0, phi0, w0 = state
+        self.action = action
         fx = self.FX[action]
         fy = self.FY[action]
         rot = self.ROT[action]
         new_state = self.iterate(state, self.DT, fx, fy, rot)
 
-        x, y, vx, vy, phi, w = new_state
+        x1, y1, vx1, vy1, phi1, w1 = new_state
+        
+        reward = 0.1 * (
+            abs(x0) - abs(x1) +
+            y0 - y1 +
+            abs(phi0) - abs(phi1) +
+            abs(vx0) - abs(vx1) +
+            abs(w0) - abs(w1)
+        )
+
+        
         
         done = False
         crash = False
         target = False
-        if y <= 0.0:
-            done = True
-            crash = vy < -self.SOFT_LANDING_V \
-                or abs(vx) > self.SOFT_LANDING_V \
-                or abs(w) > self.SOFT_LANDING_W \
-                or abs(phi) > self.SOFT_LANDING_ANGLE
-            target = abs(x) < self.LANDING_TARGET_WIDTH
-            distance = 0.0 if target else:
-                abs(abs(x)-self.LANDING_TARGET_WIDTH)/self.LANDING_TARGET_WIDTH
         
-        reward = 0.0
-        if done:
+        land = y1 <= 0.0
+        out =  y1 > self.SPACE_H or abs(x1) > self.SPACE_W/2
+        
+        done = land or out
+        
+        if land:
+            crash = (
+                vy1 < -self.SOFT_LANDING_V 
+                or abs(vx1) > self.SOFT_LANDING_V 
+                or abs(w1) > self.SOFT_LANDING_W 
+                or abs(phi1) > self.SOFT_LANDING_ANGLE
+            )
+            target = abs(x1) < self.LANDING_TARGET_WIDTH
+            distance = 0.0 if target else \
+                abs(abs(x1)-self.LANDING_TARGET_WIDTH)/self.LANDING_TARGET_WIDTH
             if crash:   reward = -10.0
             elif target:    reward = 10.0
             else:       reward = max(1.0-abs(distance), 0.0)
-            
+        elif out:
+            reward = -10.0
+        self.crash = crash
         self.state = new_state
+        
+        #if land:
+        #    print "Crashed" if crash else "Landed", new_state, "   reward:", reward
+        
+            
+        
         return new_state, reward, done, {}
+        
+    LanderPoly = [
+        (-20, 0),
+        (-10, 30),
+        (10, 30),
+        (20, 0)
+    ]
 
+    MainEnginePoly = [
+        (-3, -1),
+        (-5, -20),
+        (5,-20),
+        (3, -1)
+    ]
+
+    LeftEnginePoly = [
+        (-15, 25),
+        (-25, 21),
+        (-25, 29)
+    ]
+    
+    RightEnginePoly = [(-x, y) for x, y in LeftEnginePoly]
+
+    def render(self, mode='human'):
+        scale = self.SCALE
+        carty = 100 # TOP OF CART
+        polewidth = 10.0
+        cartwidth = 50.0
+        cartheight = 30.0
+
+        if self.viewer is None:
+            from gym.envs.classic_control import rendering
+
+            self.viewer = rendering.Viewer(self.SCREEN_W, self.SCREEN_H)
+            
+            body = rendering.FilledPolygon(self.LanderPoly)
+            body.set_color(0.5,0.4,0.9)
+            
+            main_engine_flare = rendering.FilledPolygon(self.MainEnginePoly)
+            main_engine_flare.set_color(0.9, 0.9, 0.1)
+            
+            left_engine_flare = rendering.FilledPolygon(self.LeftEnginePoly)
+            left_engine_flare.set_color(0.9, 0.9, 0.1)
+
+            right_engine_flare = rendering.FilledPolygon(self.RightEnginePoly)
+            right_engine_flare.set_color(0.9, 0.9, 0.1)
+            
+            self.Body = body
+            self.MainEngine = main_engine_flare
+            self.RightEngine = right_engine_flare
+            self.LeftEngine = left_engine_flare
+            
+            sky = rendering.FilledPolygon([
+                (0.0, 0.0),
+                (self.SCREEN_W, 0.0),
+                (self.SCREEN_W, self.SCREEN_H),
+                (0.0, self.SCREEN_H)
+                
+            ])
+            sky.set_color(0,0,0)
+            self.viewer.add_geom(sky)
+            base = rendering.FilledPolygon([
+                (0.0, 0.0),
+                (self.SCREEN_W, 0.0),
+                (self.SCREEN_W, self.ZERO_Y),
+                (0.0, self.ZERO_Y)
+            ])
+            base.set_color(0.9, 0.9, 0.9)
+            self.viewer.add_geom(base)
+
+            self.LanderTransform = rendering.Transform()
+            for g in (self.Body, self.MainEngine, self.RightEngine, self.LeftEngine):
+                g.add_attr(self.LanderTransform)
+            #if self.crash:
+            #    self.Body.set_color(1.0, 0.4, 0.1)
+            self.viewer.add_geom(body)
+            
+        state = self.state
+        if state is None:  return None
+        
+        x, y, _, _, phi, _ = state
+        x0, y0 = self.SCREEN_W/2 + x*self.SCALE, self.ZERO_Y + y*self.SCALE
+
+        self.LanderTransform.set_translation(x0, y0)
+        self.LanderTransform.set_rotation(phi)
+            
+        if self.action == 1:
+            self.viewer.add_onetime(self.MainEngine)
+        elif self.action == 2:
+            self.viewer.add_onetime(self.LeftEngine)
+        elif self.action == 3:
+            self.viewer.add_onetime(self.RightEngine)
+            
+        return self.viewer.render(return_rgb_array = mode=='rgb_array')
+            
+if __name__ == "__main__":
+    
+    env = SimpleLander()
+    env.reset()
+    done = False
+    while not done:
+        a = random.randint(1,3)
+        new_state, reward, done, info = env.step(a)
+        env.render()
+        

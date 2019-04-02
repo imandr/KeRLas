@@ -32,26 +32,6 @@ class BoltzmannQPolicy:
     def __str__(self):
         return "BoltzmannQPolicy(%f)" % (self.tau,)
 
-    def ___select_action(self, q_values, valids):
-        """Return the selected action
-
-        # Arguments
-            q_values (np.ndarray): List of the estimations of Q for each action
-
-        # Returns
-            Selection action
-        """
-        assert q_values.ndim == 1
-        if self.tau <= 0.0:
-            return valids[np.argmax(q_values[valids])]
-        q_values = q_values.astype('float64')[valids]
-        q_values -= np.max(q_values)
-
-        exp_values = np.exp(q_values / self.tau)
-        probs = exp_values / np.sum(exp_values)
-        action = np.random.choice(valids, p=probs)
-        return action
-        
     def select_action(self, q_values):
         """Return the selected action
 
@@ -64,7 +44,7 @@ class BoltzmannQPolicy:
         assert q_values.ndim == 1
         if self.tau <= 0.0:
             return np.argmax(q_values)
-        q_values -= np.max(q_values)
+        q_values = q_values - np.max(q_values)
 
         exp_values = np.exp(q_values / self.tau)
         probs = exp_values / np.sum(exp_values)

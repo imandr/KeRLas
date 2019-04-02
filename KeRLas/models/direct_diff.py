@@ -1,4 +1,4 @@
-import numpy as np
+import numpy as np, random
 
 from keras.models import Model
 from keras.layers import Input, Lambda
@@ -32,11 +32,17 @@ class DirectDiffModel(RLModel):
         model.compile(Adam(lr=1e-3), ["mse"])
         return model
         
-    def training_data(self, s0, action, s1, final, reward):
+    def training_data(self, s0, action, s1, reward, final):
         n_actions = self.NActions
         mask = np.zeros((len(s0), n_actions))
         for i in xrange(n_actions):
             mask[action==i, i] = 1.0
         #print "DirectDiffModel.training_data: returning data"
-        return [s0, mask, s1, final], [reward]
+
+        #for i, ri in enumerate(reward):
+        #        if ri:
+        #            print s0[i], action[i], mask[i], s1[i], ri
+
+
+        return [s0, mask, s1, np.asarray(final, np.float32)], [reward[:,None]]
 

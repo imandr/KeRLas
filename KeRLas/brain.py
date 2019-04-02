@@ -55,11 +55,9 @@ class Brain(object):
     def q(self, observation):
         return self.RLModel.predict_on_batch([np.array([observation])])[0]
         
-    def train_on_samples(self, samples):
-        return self.RLModel.train_on_samples(samples)
-        
     def action(self, observation):
         q = self.q(observation)
+        #print "Brain: q=", q
         a = self.Policy(q)
         return a, q
 
