@@ -6,8 +6,6 @@ from keras.models import Model
 from keras.layers import Dense, Activation, Flatten, Input, Lambda
 from keras.optimizers import Adam
 
-from .player import MixedPlayer
-
 class TrainingContext(object):
     
     def __init__(self, brain, in_traning):
@@ -69,5 +67,12 @@ class Brain(object):
         
     def training_data(self, sample):
         return self.RLModel.training_data(sample)
+        
+    def formatTrajectory(self, trajectory):
+        """ Format trajectory into a list of tuples before they are stored in memory.
+            Trajectory is list of (s,a,r,s,d) tuples
+        """
+        return self.RLModel.formatTrajectory(trajectory)
+        
         
         

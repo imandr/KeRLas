@@ -67,3 +67,6 @@ class RLModel(object):
         
     def create_trainig_model(self, qmodel, gamma, *params, **args):
         raise NotImplementedError
+        
+    def formatTrajectory(self, trajectory):
+        return trajectory   # default implementation

@@ -15,6 +15,8 @@ class Player(object):
             samples += self.runEpisode()
         return samples
         
+    sample = gameSample
+        
     def randomSample(self, size):
         raise NotImplementedError
 
@@ -93,7 +95,7 @@ class GymPlayer(Player):
         self.Brain.episodeEnd()
         if self.Callback is not None:   self.Callback.onEpisodeEnd(env, trajectory, info)
         #print "final record:", trajectory[-1]
-        return trajectory
+        return trajectory, info
 
     def randomSample(self, size):
         samples = []
@@ -124,17 +126,18 @@ class MixedPlayer(object):
             sample = self.Player.randomSample(self.ChunkSize)
             tag = {"random":True}
             self.NGeneratedRandom += len(sample)
+            info = []
         else:
-            sample = self.Player.gameSample(self.ChunkSize)
+            sample, info = self.Player.gameSample(self.ChunkSize)
             tag = {"random":False, "tau":self.Brain.Policy.tau}
             #print "Player: tau=", self.Brain.Policy.tau, "   len=", len(sample)
             self.NGeneratedGame += len(sample)
-        return sample, tag
+        return sample, info, tag
         
     def sample(self, size):
         s = []
         while len(s) < size:
-            data, tag = self.chunk()
+            data, info, tag = self.chunk()
             s += [(item, tag) for item in data]
         return s
         
