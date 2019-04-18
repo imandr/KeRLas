@@ -1,6 +1,9 @@
 import gym, random, numpy as np
 
-class MultiGymEnv(object):
+class MultiEnv(object):
+    pass
+
+class MultiGymEnv(MultiEnv):
     #
     # Convert 1-agent Gym environment into a multi-agent environment
     #

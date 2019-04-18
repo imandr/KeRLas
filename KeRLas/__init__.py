@@ -1,7 +1,7 @@
 from .agent import Agent
 from .brain import Brain
 from .player import MixedPlayer, GymPlayer, MultiPlayer
-from .gym_env import MultiGymEnv, TimedGymEnv
+from .gym_env import MultiGymEnv, TimedGymEnv, MultiEnv
 from .memory import ReplayMemory
 from .trainer import Trainer
 #import policies

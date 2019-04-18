@@ -1,5 +1,5 @@
 from .agent import Agent
-from .gym_env import TimedGymEnv
+from .gym_env import TimedGymEnv, MultiEnv
 
 class Player(object):
     
@@ -113,7 +113,8 @@ class MixedPlayer(object):
         self.NGeneratedGame = 0
         self.Env = env
         self.Brain = brain
-        self.Player = GymPlayer(env, brain) if isinstance(env, TimedGymEnv) else MultiPlayer(env, brain)       # nagents = 1 for now
+        self.Player = MultiPlayer(env, brain) \
+            if isinstance(env, MultiEnv) else  GymPlayer(env, brain)       # nagents = 1 for now
         self.ChunkSize = chunk
         
     def chunk(self):
