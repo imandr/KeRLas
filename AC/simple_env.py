@@ -1,13 +1,17 @@
 import numpy as np
 import random
 import gym
+from gym import spaces, logger
 
-class Env(gym.Env):
+class SimpleEnv(gym.Env):
     NAgents = 1
     Delta = 0.1
     Width = 1.0
     NActions = 2
     StateDim = 1
+    
+    action_space = spaces.Discrete(2)
+    observation_space = spaces.Box(0.0, 1.0, shape=(1,))
     
     Moves = [-Delta*0.937, Delta*1.1]
 
@@ -37,7 +41,9 @@ class Env(gym.Env):
         self.state = x1
         #print("env.state: state:", self.state)
         return self.vector(), r, done, {}
-        
+    
+    def render(self):
+        pass
     
         
         

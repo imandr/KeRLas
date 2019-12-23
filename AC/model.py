@@ -52,6 +52,7 @@ class QVModel(object):
     
     def __init__(self, inp_width, q_width, gamma, v_width = 1):
         self.NQ = q_width
+        self.XWidth = inp_width
         self.Gamma = gamma
         base_width = inp_width*10
         self.BaseModel = base_model(inp_width, base_width)
@@ -116,7 +117,7 @@ class QVModel(object):
         assert isinstance(x, np.ndarray) and len(x.shape) > 1
         return self.VModel.predict_on_batch(x)[:,0]
         
-    def train_q(self, x0, a, error):
+    def __train_q(self, x0, a, error):
         n = len(a)
         amask = np.zeros((n, self.NQ))
         for i in range(self.NQ):
@@ -131,10 +132,40 @@ class QVModel(object):
         metrics = self.QTModel.train_on_batch([x0, amask], [q0_masked + error.reshape((-1,1)), zeros])
         return metrics
         
+    def train_q(self, x0, a, error):
+        n = len(a)
+        q = self.q_array(x0)
+        for i, (aa, e) in enumerate(zip(a, error)):
+            q[i, aa] += e
+        metrics = self.QModel.train_on_batch(x0, q)
+        return metrics
+        
+    def train_q(self, x0, a, error):
+        n = len(a)
+        q = self.q_array(x0)
+        for i, (aa, e) in enumerate(zip(a, error)):
+            q[i, aa] += e
+        metrics = self.QModel.train_on_batch(x0, q)
+        return metrics
+        
     def train_v(self, x0, v1):
         #print ("train_v: x0:", x0,"  v1:", v1)
         metrics = self.VModel.train_on_batch(x0, v1.reshape((-1,1)))
         return metrics
+        
+    def train(self, x0, v0, a, r, x1, v1, f):
+        v0_ = v1*self.Gamma + r
+        vmetrics = self.VModel.train_on_batch(x0, v0_.reshape((-1,1)))
+        
+        q_ = self.q_array(x0)
+        improvement = v1 + r - v0
+        for i, (aa, d) in enumerate(zip(a, improvement)):
+            q_[i, aa] = d
+        qmetrics = self.QModel.train_on_batch(x0, q_)
+        
+        return vmetrics, qmetrics
+        
+        
         
         
 class BoltzmannQPolicy:
@@ -171,8 +202,8 @@ class BoltzmannQPolicy:
         
     __call__ = select_action
     
-train_policy = BoltzmannQPolicy(10.0)     
-test_policy = BoltzmannQPolicy(0.01)     
+train_policy = BoltzmannQPolicy(0.1)     
+test_policy = BoltzmannQPolicy(0.0001)     
         
         
         
