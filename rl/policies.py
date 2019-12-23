@@ -6,13 +6,19 @@ class GreedyEpsPolicy:
     def __init__(self, epsilon = 0.0):
         self.Epsilon = epsilon
     
-    def choose(self, qs, valids):
+    def choose(self, qs, valids=None):
         # valids is list of actions
         if random.random() < self.Epsilon:
-            return random.choice(valids)
+            if valids is not None:
+                return random.choice(valids)
+            else:
+                return random.randint(0, len(qs)-1)
         else:
             #return np.argmax(qs)
-            return valids[np.argmax(qs[valids])]
+            if valids is not None:
+                return valids[np.argmax(qs[valids])]
+            else:
+                return np.argmax(qs)
             
     def __str__(self):
         return "GreedyEpsPolicy(%f)" % (self.Epsilon,)

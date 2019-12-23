@@ -296,9 +296,12 @@ class LunarLander(gym.Env):
             - 10*np.sqrt(state[2]*state[2] + state[3]*state[3]) \
             - 10*abs(state[4]) + 10*state[6] + 10*state[7]   # And ten points for legs contact, the idea is if you
                                                               # lose contact again after landing, you get negative reward
+        shaping_reward = 0.0
         if self.prev_shaping is not None:
-            reward = shaping - self.prev_shaping
+            shaping_reward = reward = shaping - self.prev_shaping
         self.prev_shaping = shaping
+        
+        #reward = 0.0
 
         #reward -= m_power*0.30  # less fuel spent is better, about -30 for heurisic landing
         #reward -= s_power*0.03
@@ -310,7 +313,7 @@ class LunarLander(gym.Env):
         if not self.lander.awake:
             done   = True
             reward = +500
-        return np.array(state), reward/100.0, done, {}
+        return np.array(state), reward/100.0, done, {"shaping_reward":shaping_reward}
 
     def render(self, mode='human'):
         from gym.envs.classic_control import rendering
@@ -387,13 +390,6 @@ def heuristic(env, s):
         elif angle_todo < -0.05: a = 3
         elif angle_todo > +0.05: a = 1
     return a
-
-from gym.wrappers import TimeLimit
-
-class TimedLinarLanderEnv(TimeLimit):
-    
-    def __init__(self, time_limit=200):
-        TimeLimit.__init__(self, LunarLander(), time_limit)
 
 
 

@@ -17,7 +17,7 @@ def base_model(inp_width, out_width):
     out = Dense(out_width, activation="tanh")(dense3)
     
     model=Model(inputs=[inp], outputs=[out])
-    model.compile(Adam(lr=1e-3), ["mse"])
+    model.compile(Adagrad(lr=1e-3), ["mse"])
     return model
 
 def top_model(inp_width, out_width):
@@ -31,7 +31,7 @@ def top_model(inp_width, out_width):
     out = Dense(out_width, activation="linear")(dense3)
     
     model=Model(inputs=[inp], outputs=[out])
-    model.compile(Adam(lr=1e-3), ["mse"])
+    model.compile(Adagrad(lr=1e-3), ["mse"])
     return model
 
 def fc_model(inp_width, out_width):
@@ -45,7 +45,7 @@ def fc_model(inp_width, out_width):
     out = Dense(out_width, activation="linear")(dense4)
     
     model=Model(inputs=[inp], output=out)
-    model.compile(Adam(lr=1e-3), ["mse"])
+    model.compile(Adagrad(lr=1e-3), ["mse"])
     return model
 
 class QVModel(object):
@@ -55,17 +55,48 @@ class QVModel(object):
         self.XWidth = inp_width
         self.Gamma = gamma
         base_width = inp_width*10
-        self.BaseModel = base_model(inp_width, base_width)
-        self.VModel = self.v_model(inp_width, base_width, self.BaseModel, v_width)
-        self.QModel = self.q_model(inp_width, base_width, self.BaseModel, q_width)
-        self.QTModel = self.q_traning_model(inp_width, q_width, self.QModel)
+        #self.BaseModel = base_model(inp_width, base_width)
+        self.VModel = self.v_model(inp_width, v_width)
+        print("VModel: --------------")
+        self.VModel.summary()
+        self.QModel = self.q_model(inp_width, q_width)
+        print("QModel: --------------")
+        self.QModel.summary()
+        #self.QTModel = self.q_traning_model(inp_width, q_width, self.QModel)
         #self.VTModel = self.v_traning_model(inp_width, q_width, self.VModel)
         
-    def v_model(self, inp_width, base_width, base_model, v_width):
-        return fc_model(inp_width, v_width)
         
-    def q_model(self, inp_width, base_width, base_model, v_width):
-        return fc_model(inp_width, v_width)
+    SKEW = 0.0
+    
+    @staticmethod
+    def v_loss(v_, v):
+        diff = v_ - v
+        skewed = (diff + QVModel.SKEW*K.abs(diff))/(1.0+QVModel.SKEW)
+        return K.mean(K.square(skewed), axis=-1)
+        
+    def v_model(self, inp_width, out_width):
+        inp = Input((inp_width,), name="v_model_input")
+        dense1 = Dense(inp_width*10, activation="tanh", bias_initializer="zeros")(inp)
+        dense2 = Dense((inp_width+out_width)*10, activation="softplus", bias_initializer="zeros")(dense1)
+        dense3 = Dense((inp_width+out_width)*10, activation="softplus", bias_initializer="zeros")(dense2)
+        dense4 = Dense(out_width*10, activation="softplus", bias_initializer="zeros")(dense3)
+        out = Dense(out_width, activation="linear", bias_initializer="zeros")(dense4)
+        model=Model(inputs=[inp], output=out)
+        model.compile(Adagrad(lr=1e-3), [self.v_loss])
+        return model
+        
+    def q_model(self, inp_width, out_width):
+        inp = Input((inp_width,), name="q_model_input")
+    
+        dense1 = Dense(inp_width*10, activation="tanh", bias_initializer="zeros")(inp)
+        dense2 = Dense((inp_width+out_width)*10, activation="softplus", bias_initializer="zeros")(dense1)
+        dense3 = Dense((inp_width+out_width)*10, activation="softplus", bias_initializer="zeros")(dense2)
+        dense4 = Dense(out_width*10, activation="softplus", bias_initializer="zeros")(dense3)
+        out = Dense(out_width, activation="linear", bias_initializer="zeros")(dense4)
+    
+        model=Model(inputs=[inp], output=out)
+        model.compile(Adagrad(lr=1e-3), ["mse"])
+        return model
         
     def q_traning_model(self, inp_width, q_width, qmodel):
         x = Input((inp_width,), name="qt_x")
@@ -82,7 +113,7 @@ class QVModel(object):
         q_masked = Lambda(qmask, name="qmasked")([q, mask])
         q_sum = Lambda(sumx)(q)
         model = Model(inputs=[x, mask], outputs=[q_masked, q_sum])
-        model.compile(Adam(lr=1e-3), ["mse", "mse"])
+        model.compile(Adagrad(lr=1e-3), ["mse", "mse"])
         print("Q training model summary:---")
         #model.summary()
         return model
@@ -100,7 +131,7 @@ class QVModel(object):
         v1 = vmodel(x1)
         diff = Lambda(v_differential)([v0, v1, f])
         model = Model(inputs=[x0, x1, f], output=diff)
-        model.compile(Adam(lr=1e-3), ["mse"])
+        model.compile(Adagrad(lr=1e-3), ["mse"])
         return model
         
     def q(self, x):
@@ -153,14 +184,36 @@ class QVModel(object):
         metrics = self.VModel.train_on_batch(x0, v1.reshape((-1,1)))
         return metrics
         
-    def train(self, x0, v0, a, r, x1, v1, f):
+    def train(self, x0, v0, a, r, x1, v1, f, verbose):
         v0_ = v1*self.Gamma + r
         vmetrics = self.VModel.train_on_batch(x0, v0_.reshape((-1,1)))
+        if verbose:
+            v0_after = self.v_array(x0)
+            v0_diff0 = np.mean(np.square(v0-v0_))
+            v0_diff1 = np.mean(np.square(v0_after-v0_))
+            print("train:")
+            print("  f:  ", f[:5], f[-5:])
+            print("  r:  ", r[:5], r[-5:])
+            print("  v1: ", v1[:5], v1[-5:])
+            print("  v0: ", v0[:5], v0[-5:], v0_diff0)
+            print("  v0*:", v0_after[:5], v0_after[-5:], v0_diff1)
+            print("  v0_:", v0_[:5], v0_[-5:])
         
-        q_ = self.q_array(x0)
+        q = self.q_array(x0)
+        q_ = q.copy()
         improvement = v1 + r - v0
         for i, (aa, d) in enumerate(zip(a, improvement)):
             q_[i, aa] = d
+        if verbose:
+            n = len(a)
+            q_a = q[np.arange(n), a]
+            q__a = q_[np.arange(n), a]
+            print("  a:     ", a[:5], a[-5:])
+            print("  q[a]:  ", q_a[:5], q_a[-5:])
+            print("  imp:   ", improvement[:5], improvement[-5:])
+            print("  q_[a]: ", q__a[:5], q__a[-5:])
+                
+        
         qmetrics = self.QModel.train_on_batch(x0, q_)
         
         return vmetrics, qmetrics

@@ -13,7 +13,7 @@ class ReplayMemory(object):
         self.Age = 0
         self.RollingAge = 0.0
         
-    def addSample(self, sample):
+    def addToBuffer(self, sample):
         self.Buffer += sample
         
     def addToMemory(self, sample):
@@ -35,4 +35,6 @@ class ReplayMemory(object):
             self.addToMemory(from_buffer)
             self.Buffer = self.Buffer[n_from_buffer:]
         return out
+        
+            
         
