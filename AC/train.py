@@ -1,12 +1,15 @@
 from simple_env import SimpleEnv
 from cartpole import TimedCartPoleEnv
-from model import QVModel, train_policy, test_policy
-from memory import ReplayMemory
+from lunar_lander import TimedLinarLanderEnv
+from model import QVModel
+#from memory import ReplayMemory
+from kerlas.policies import BoltzmannQPolicy
 import numpy as np
 
+np.set_printoptions(precision=4, suppress=True)
 
 Gamma = 0.9
-game_env = TimedCartPoleEnv(200)
+game_env = TimedLinarLanderEnv(200)
 #game_env = SimpleEnv(200)
 
 state_dim = game_env.observation_space.shape[-1]
@@ -15,11 +18,11 @@ nactions = game_env.action_space.n
 print("state_dim:", state_dim)
 
 qvmodel = QVModel(state_dim, nactions, Gamma)
-memory = ReplayMemory(10000)
+#memory = ReplayMemory(10000)
 
 NGames = 100000
 NextTrain = TrainInterval = 100     # train after 100 games
-NextTest = TestInterval = 500
+NextTest = TestInterval = 100
 
 def play_game(env, model, policy, log=False, render=False):
     x = env.reset()
@@ -47,19 +50,6 @@ def play_game(env, model, policy, log=False, render=False):
         t += 1
     return score, record
     
-def train(memory, qvmodel):
-    mbsize = 30
-    nbatches = 100
-    for b in range(nbatches):
-        sample = memory.sample(mbsize)
-        x0, a0, r, v0, x1, v1, f = zip(*sample)
-        v_metrics = qvmodel.train_v(np.array(x0), np.array(v0), np.array(r), np.array(x1), np.array(f))
-    for b in range(nbatches):
-        sample = memory.sample(mbsize)
-        x0, a0, r, v0, x1, v1, f = zip(*sample)
-        q_metrics = qvmodel.train_q(np.array(x0), np.array(a0), np.array(r), np.array(x1))
-    print("Traning metrics: q: %.6f  v: %.6f" % (q_metrics, v_metrics))
-        
 def test(env, qmodel, policy, render=False):
     ngames = 100
     sum_scores = 0.0
@@ -68,9 +58,17 @@ def test(env, qmodel, policy, render=False):
         sum_scores += score
     print("Average score:", sum_scores/ngames)
     play_game(env, qmodel, policy, log=True, render=render)
+    
+train_policy = BoltzmannQPolicy(1.0)     
+test_policy = BoltzmannQPolicy(0.001)     
+
+train_policies = [BoltzmannQPolicy(10.0), BoltzmannQPolicy(1.0), BoltzmannQPolicy(0.1), BoltzmannQPolicy(0.01)]
+ip = 0
 
 for igame in range(NGames):
-    score, record = play_game(game_env, qvmodel, train_policy)
+    tp = train_policies[ip]
+    ip = (ip+1)%len(train_policies)
+    score, record = play_game(game_env, qvmodel, tp)
     
     x0, a, r, x1, f = zip(*record)
     a = np.array(a)
