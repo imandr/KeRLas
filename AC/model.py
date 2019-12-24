@@ -50,6 +50,8 @@ def fc_model(inp_width, out_width):
 
 class QVModel(object):
     
+    NAhead = 5
+    
     def __init__(self, inp_width, q_width, gamma, v_width = 1):
         self.NQ = q_width
         self.XWidth = inp_width
@@ -184,7 +186,27 @@ class QVModel(object):
         metrics = self.VModel.train_on_batch(x0, v1.reshape((-1,1)))
         return metrics
         
-    def train(self, x0, v0, a, r, x1, v1, f, verbose):
+    def calc_v_estimates(self, v1, r, f):
+        #
+        # v(0) = r(0) + g*v1(0)
+        # v(0) = r(0) + g*r(1) + g**2*v1(1)
+        # v(0) = r(0) + g*r(1) + g**2*r(2) + g**3*v1(2)
+        #
+        v1 = v1 * (1-f)
+        n = len(v1)
+        v1_est = np.empty_like(v1)
+        for j in range(n):
+            k = min(self.NAhead, n-j)
+            v1_est[j] = sum(r[j:j+self.NAhead]*self.GammaPowers[:k]) + v1[j+k-1]*self.Gamma**k
+        print("calc_v_estimates:")
+        print("  v1: ", v1[-9:])
+        print("  r:  ", r[-9:])
+        print("  v1_:", v1_est[-9:])
+        return v1_est
+        
+    def train(self, x0, v0, a, r, x1, v1, f, v0_est, verbose):
+        
+        #v0_ = self.calc_v_estimates(v1, r, f)
         v0_ = v1*self.Gamma + r
         vmetrics = self.VModel.train_on_batch(x0, v0_.reshape((-1,1)))
         if verbose:
@@ -201,9 +223,9 @@ class QVModel(object):
         
         q = self.q_array(x0)
         q_ = q.copy()
-        improvement = v1 + r - v0
+        improvement = self.Gamma*v1 + r - v0
         for i, (aa, d) in enumerate(zip(a, improvement)):
-            q_[i, aa] = d
+            q_[i, aa] = q[i,aa] + d*0.1
         if verbose:
             n = len(a)
             q_a = q[np.arange(n), a]
