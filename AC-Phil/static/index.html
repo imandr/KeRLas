@@ -1,0 +1,59 @@
+<html>
+
+<head>
+    <script src="/static/request.js"></script>
+    <script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
+    <script>
+        google.charts.load('current', {packages: ['corechart', 'line']});
+    </script>
+</head>
+
+<body>
+    <div id="chart_div" style="width: 900px; height: 500px;"></div>
+
+    <script>
+        var chart = null;
+        var options = {
+            series: {
+                "avg_score": {
+                    lineWidth: 0.5
+                }
+            }
+        }
+
+        var receiver = {
+            data_received: function (data, c)
+            {
+                var labels = data.labels;
+                var rows = data.data;
+                
+                var data_table = new google.visualization.DataTable();
+                var i;
+                for( i = 0; i < labels.length; i++ )
+                    data_table.addColumn("number", labels[i]);
+                
+                data_table.addRows(rows);
+                c.draw(data_table, options);
+            }
+        };
+        
+        function request_data()
+        {
+            var request = HTTPRequest("/data", receiver, chart, "json");            
+        }
+
+        function init_chart()
+        {
+            chart = new google.visualization.LineChart(document.getElementById('chart_div'));
+            request_data();
+            setInterval(request_data, 5000);
+        }
+        
+        google.charts.setOnLoadCallback(init_chart);
+        
+        
+        
+    </script>
+</body>
+
+</html>

@@ -1,6 +1,6 @@
 import gym
 from ac import Agent
-from monitor import Monitor
+from monitor import Monitor, http_server
 import numpy as np
 
 agent = Agent(0.0001, 0.0005)
@@ -131,12 +131,15 @@ class Tester(object):
 trainer = Trainer(agent, env, train_interval=10, mb_size=30)
 tester = Tester(agent, env, tau=10.0)
 monitor = Monitor("monitor.csv")
+mon_server = http_server(8080, monitor)
 best_average = None
 best_average_t = t = 0
 next_display = display_interval = 100
 
 test_window = Window()
 avg_score_window = Window()
+
+mon_server.start()
 
 for num_trained, actor_metrics, critic_metrics, score, avg_score in trainer.train(num_episodes, tau=0.2):
     avg_score_window << avg_score
@@ -145,7 +148,10 @@ for num_trained, actor_metrics, critic_metrics, score, avg_score in trainer.trai
     print("Episodes: %6d   score: %+8.2f   average score: %+8.2f   average score_window: %+8.2f:%+8.2f   test score: %+8.2f" % \
             (num_trained, score, avg_score, avg_score_window.Low, avg_score_window.High, test_score))
             
-    monitor.add(num_trained, score=score, avg_score=avg_score, avg_low=avg_score_window.Low, avg_high=avg_score_window.High, test_score=test_score)
+    monitor.add(num_trained, score=score, avg_score=avg_score, 
+        avg_low=avg_score_window.Low, avg_high=avg_score_window.High    
+        #test_score=test_score
+        )
     if num_trained >= next_display:
         tester.display(tau=1.0)
         next_display += display_interval
