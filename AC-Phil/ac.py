@@ -24,8 +24,10 @@ class Agent(object):
         tau = Input(shape=[1])
         dense1 = Dense(self.fc1_dims, activation='relu')(input)
         dense2 = Dense(self.fc2_dims, activation='relu')(dense1)
+        #v1 = Dense(self.fc2_dims, activation='softplus')(dense2)
         values = Dense(1, activation='linear')(dense2)
 
+        #v2 = Dense(self.fc2_dims, activation='softplus')(dense2)
         pre_probs = Dense(self.n_actions, activation='linear')(dense2)
         
         def tau_softmax(args):
@@ -46,14 +48,20 @@ class Agent(object):
         actor.compile(optimizer=Adam(lr=self.alpha), loss=custom_loss)
         
         critic = Model(inputs=[input], outputs=[values])
-        critic.compile(optimizer=Adam(lr=self.beta), loss="mse")
         
+        def skewed_mse(y_, y):
+            skew = 0.0
+            d = y - y_
+            skewed = (d+skew*K.abs(d))/(1.0+skew)
+            return K.mean(K.square(skewed))
+            
+        critic.compile(optimizer=Adam(lr=self.beta), loss=skewed_mse)
         
         return actor, critic, policy
 
     def choose_action(self, observation, tau=1.0):
         state = observation[np.newaxis, :]
-        tau = np.ones((len(observation),))*tau
+        tau = np.ones((1,1)) * tau
         probabilities = self.policy.predict([state, tau])[0]
         action = np.random.choice(self.action_space, p=probabilities)
 
@@ -79,7 +87,7 @@ class Agent(object):
     def learn_batches(self, mb_size, state, action, reward, state_, done, tau=1.0, shuffle=True):
         # make sure data is np arrays
         state = np.array(state)
-        tau = np.ones((len(state),))*tau
+        tau = np.ones((len(state),1))*tau
         action = np.array(action)
         reward = np.array(reward)
         state_ = np.array(state_)
@@ -98,6 +106,9 @@ class Agent(object):
         actions = np.zeros([n, self.n_actions])
         actions[np.arange(n), action] = 1
 
+        target = target.reshape((-1,1))
+        delta = delta.reshape((-1,1))
+        #print("learn_batches: state:", state.shape, "  tau:", tau.shape, "  delta:",delta.shape)
         actor_metrics = self.actor.fit([state, tau, delta], actions, batch_size=mb_size, verbose=0, shuffle=shuffle)
 
         critic_metrics = self.critic.fit(state, target, batch_size=mb_size, verbose=0, shuffle=shuffle)
