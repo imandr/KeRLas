@@ -9,6 +9,12 @@ class Monitor(object):
         self.Data = []          # [(t, data_dict),]
         self.SaveInterval = 1
         self.NextSave = self.SaveInterval
+        self.Server = None
+        
+    def start_server(self, port):
+        app = App(self, static_location="static", enable_static=True)    
+        self.Server = HTTPServer(port, app)
+        self.Server.start()
         
     def add(self, t, data=None, **data_args):
         if data is None:    data = data_args
@@ -54,7 +60,3 @@ class App(WPApp):
     def data(self):
         return self.Monitor.data_as_table()
 
-
-def http_server(port, mon):    
-    app = App(mon, static_location="static", enable_static=True)    
-    return HTTPServer(port, app)

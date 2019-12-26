@@ -8,6 +8,7 @@ env = gym.make("LunarLander-v2")
 score_history = []
 num_episodes = 2000
 monitor = Monitor("monitor.csv")
+monitor.start_server(8080)
 
 for t in range(num_episodes):
     done = False
