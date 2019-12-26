@@ -64,3 +64,35 @@ class Agent(object):
         self.actor.fit([state, delta], actions, verbose=0)
 
         self.critic.fit(state, target, verbose=0)
+
+    def learn_batches(self, mb_size, state, action, reward, state_, done, tau=1.0, shuffle=True):
+        # make sure data is np arrays
+        state = np.array(state)
+        #tau = np.ones((len(state),1))*tau
+        action = np.array(action)
+        reward = np.array(reward)
+        state_ = np.array(state_)
+        done = np.array(done, dtype=np.int)
+        #print("learn_batches: inputs:", state.shape, action.shape, reward.shape, state_.shape, done.shape)
+        
+        n = len(state)
+        
+        critic_value = self.critic.predict(state)[:,0]
+        critic_value_ = self.critic.predict(state_)[:,0]
+
+        target = reward + self.gamma*critic_value_*(1-done)
+        delta =  target - critic_value
+        #print("learn_batches: delta:", delta.shape, delta)
+
+        actions = np.zeros([n, self.n_actions])
+        actions[np.arange(n), action] = 1
+
+        target = target.reshape((-1,1))
+        delta = delta.reshape((-1,1))
+        #print("learn_batches: state:", state.shape, "  delta:", delta.shape, "  actions:", actions.shape, "  target:", target.shape)
+        
+        for i in range(0, n, mb_size):
+            actor_metrics = self.actor.train_on_batch([state[i:i+mb_size], delta[i:i+mb_size]], actions[i:i+mb_size])
+            critic_metrics = self.critic.train_on_batch(state[i:i+mb_size], target[i:i+mb_size])
+        
+        return actor_metrics, critic_metrics
