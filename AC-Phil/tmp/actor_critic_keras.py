@@ -63,6 +63,7 @@ class Agent(object):
         actions = np.zeros([1, self.n_actions])
         actions[np.arange(1), action] = 1
 
-        self.actor.fit([state, delta], actions, verbose=0)
-
-        self.critic.fit(state, target, verbose=0)
+        actor_metrics = self.actor.fit([state, delta], actions, verbose=0)
+        critic_metrics = self.critic.fit(state, target, verbose=0)
+        
+        return actor_metrics, critic_metrics

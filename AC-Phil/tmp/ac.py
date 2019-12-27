@@ -32,13 +32,13 @@ class Agent(object):
 
             return K.sum(-log_lik*delta)
             
-        actor = Model(inputs=[input, delta], outputs=[probs])
+        actor = Model(input=[input, delta], output=[probs])
         actor.compile(optimizer=Adam(lr=self.alpha), loss=custom_loss)
         
-        critic = Model(inputs=[input], outputs=[values])
+        critic = Model(input=[input], output=[values])
         critic.compile(optimizer=Adam(lr=self.beta), loss="mse")
         
-        policy = Model(inputs=[input], outputs=[probs])
+        policy = Model(input=[input], output=[probs])
         
         return actor, critic, policy
 
@@ -61,9 +61,10 @@ class Agent(object):
         actions = np.zeros([1, self.n_actions])
         actions[np.arange(1), action] = 1
 
-        self.actor.fit([state, delta], actions, verbose=0)
-
-        self.critic.fit(state, target, verbose=0)
+        actor_metrics = self.actor.fit([state, delta], actions, verbose=0)
+        critic_metrics = self.critic.fit(state, target, verbose=0)
+        
+        return actor_metrics, critic_metrics
 
     def learn_batches(self, mb_size, state, action, reward, state_, done, tau=1.0, shuffle=True):
         # make sure data is np arrays

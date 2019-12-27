@@ -4,7 +4,6 @@ class Smoothie(object):
     def __init__(self, alpha = 0.1):
         self.Low = self.High = None
         self.Alpha = alpha
-        self.Preload = preload
         self.Record = []
         
     def update(self, x):
@@ -12,20 +11,20 @@ class Smoothie(object):
             self.Low = self.High = x
         if x < self.Low:
             self.Low = x
-            self.High += self.Alpha*(x - self.High)
+            self.High += self.Alpha*5*(x - self.High)
         elif x > self.High:
             delta = x - self.High
             self.High = x
-            self.Low += self.Alpha*(x - self.Low)
+            self.Low += self.Alpha*5*(x - self.Low)
         else:
-            self.Low += self.Alpha/10*(x - self.Low)
-            self.High += self.Alpha/10*(x - self.High)
+            self.Low += self.Alpha*(x - self.Low)
+            self.High += self.Alpha*(x - self.High)
 
         self.Record.append(x)
         
         ma10 = np.mean(self.Record[-10:])
         ma100 = np.mean(self.Record[-100:])
-        self.MovingAverage = (ma10+ma100)/2
+        self.MovingAverage = (ma10+10*ma100)/11.0
         
         """
         if len(self.Record) < self.Preload:

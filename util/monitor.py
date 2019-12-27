@@ -69,7 +69,7 @@ class Monitor(object):
         labels = list(self.Labels)
         rows = []
         n = len(self.Data)
-        prescale = 1.0 if n < 1000 else 0.1
+        prescale = 1.0 if n < 10000 else 0.1
         scaler = 0.0
         for i, (t, row) in enumerate(self.Data):
             scaler += prescale

@@ -15,13 +15,13 @@ trainer = Trainer(agent, env, train_interval=1, mb_size=30, shuffle=False, rever
 score_smoother = Smoothie(0.01)
 
 if False:
-    for t, actor_metrics, critic_metrics, score in trainer.train(num_episodes, report_interval=10):
+    for t, actor_metrics, critic_metrics, score in trainer.train(num_episodes, report_interval=1):
         min_score, score_ma, max_score = score_smoother.update(score)
         print(t, score, min_score, score_ma, max_score)
         monitor.add(t, score_MA= score_ma, min_score=min_score, max_score=max_score, score=score)
-
-for t in range(num_episodes):
-    score, _ = trainer.run_episode(learn=True)
-    min_score, score_ma, max_score = score_smoother.update(score)
-    print(t, score, min_score, score_ma, max_score)
-    monitor.add(t, score_MA= score_ma, min_score=min_score, max_score=max_score, score=score)
+else:
+    for t in range(num_episodes):
+        score, _, actor_metrics, critic_metrics = trainer.run_episode(learn=True)
+        min_score, score_ma, max_score = score_smoother.update(score)
+        print(t, score, min_score, score_ma, max_score, actor_metrics, critic_metrics)
+        monitor.add(t, score_MA= score_ma, min_score=min_score, max_score=max_score)
