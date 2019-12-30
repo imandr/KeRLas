@@ -10,23 +10,48 @@
 
 <body>
     <p id="message"></p>
+    <div id="charts"></div>
     <div id="chart_div" style="width: 900px; height: 500px;"></div>
 
     <script>
-        var chart = null;
+        var charts = {};                // id -> chart object
         var options = {
-            series: {
-                "avg_score": {
-                    lineWidth: 0.5
-                }
-            }
+                interpolateNulls: true
         }
+        
+        chart = new google.visualization.LineChart(document.getElementById('chart_div'));
 
         var receiver = {
             data_received: function (data, c)
             {
                 var labels = data.labels;
                 var rows = data.data;
+                var desc = data.plot_desc;
+                var plots = [];
+                
+                desc.forEach( (subplot_desc, i) = > {
+                        var series = [];
+                        Object.entries(subplot_desc).forEach(([label, options]) => {
+                                var series_options = {};
+                                if( "line_width" in options )
+                                        series_options.lineWidth = options.line_width;
+                                if( "color" in attrs )
+                                        series_options.color = options.color;
+                                if( "marker_style" in options )
+                                {
+                                        series_options.pointShape = options.marker_style;
+                                        series_options.pointVisible = true;
+                                }
+                                else
+                                        series_options.pointVisible = false;
+                                series.push({
+                                        "label": label,
+                                        "options": series_options
+                                });
+                        }
+                        plots.push(series);
+                });
+                
                 if( rows.length > 0 && labels.length > 0 )
                 {
                         var data_table = new google.visualization.DataTable();
@@ -53,7 +78,6 @@
 
         function init_chart()
         {
-            chart = new google.visualization.LineChart(document.getElementById('chart_div'));
             request_data();
             setInterval(request_data, 5000);
         }

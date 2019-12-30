@@ -5,8 +5,8 @@ from keras.optimizers import Adam
 import numpy as np
 
 class Agent(object):
-    def __init__(self, alpha, beta, gamma=0.99, n_actions=4,
-                 layer1_size=1024, layer2_size=512, input_dims=8):
+    def __init__(self, input_dims, n_actions, alpha, beta, gamma=0.99,
+                 layer1_size=1024, layer2_size=512):
         self.gamma = gamma
         self.alpha = alpha
         self.beta = beta
@@ -42,10 +42,13 @@ class Agent(object):
         
         return actor, critic, policy
 
-    def choose_action(self, observation):
+    def choose_action(self, observation, test = False):
         state = observation[np.newaxis, :]
         probabilities = self.policy.predict(state)[0]
-        action = np.random.choice(self.action_space, p=probabilities)
+        if test:
+            action = np.argmax(probabilities)
+        else:
+            action = np.random.choice(self.action_space, p=probabilities)
 
         return action
 
@@ -125,15 +128,19 @@ class Agent(object):
         
         return actor_metrics, critic_metrics
         
-    def run_episode(self, env, learn = False):
+    def run_episode(self, env, learn = False, test = False, render=False):
         done = False
         observation = env.reset()
+        if render:
+            env.render()
         score = 0.0
         record = []
         actor_metrics, critic_metrics = None, None
         while not done:
-            action = self.choose_action(observation)
+            action = self.choose_action(observation, test)
             observation_, reward, done, info = env.step(action)
+            if render:
+                env.render()
             record.append((observation, action, reward, observation_, 1.0 if done else 0.0, info))
             if learn:
                 actor_metrics, critic_metrics = self.learn(observation, action, reward, observation_, done)

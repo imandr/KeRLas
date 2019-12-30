@@ -55,3 +55,12 @@ class MultiTrainer(object):
                 next_report += report_interval
         yield t, avg_score
         
+    def test(self, num_episodes, render=False):
+        env = self.Envs[0]
+        scores = np.zeros((num_episodes,))
+        for t in range(num_episodes):
+            score, record, _, _ = self.Agent.run_episode(env, test=False, render=render)
+            scores[t] = score
+        return min(scores), np.mean(scores), max(scores)
+        
+    
