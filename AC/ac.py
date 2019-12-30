@@ -21,10 +21,10 @@ class Agent(object):
     def build_actor_critic_network(self):
         input = Input(shape=(self.input_dims,))
         delta = Input(shape=[1])
-        dense1 = Dense(self.fc1_dims, activation='relu')(input)
-        dense2 = Dense(self.fc2_dims, activation='relu')(dense1)
-        probs = Dense(self.n_actions, activation='softmax')(dense2)
-        values = Dense(1, activation='linear')(dense2)
+        dense1 = Dense(self.fc1_dims, activation='relu', bias_initializer='zeros')(input)
+        dense2 = Dense(self.fc2_dims, activation='relu', bias_initializer='zeros')(dense1)
+        probs = Dense(self.n_actions, activation='softmax', bias_initializer='zeros')(dense2)
+        values = Dense(1, activation='linear', bias_initializer='zeros')(dense2)
 
         def custom_loss(y_true, y_pred):
             out = K.clip(y_pred, 1e-8, 1-1e-8)
@@ -66,6 +66,33 @@ class Agent(object):
         
         return actor_metrics, critic_metrics
 
+    def learn_batch(self, states, actions, rewards, states_, dones):
+        n = len(states)
+        critic_values_ = self.critic.predict(states_)
+        critic_values = self.critic.predict(states)
+        rewards = rewards.reshape((-1, 1))
+        dones = dones.reshape((-1, 1))
+
+        #print("learn_batch: states:", states.shape, " actions:", actions.shape, " rewards:", rewards.shape,
+        #            " states_:", states_.shape, " dones:", dones.shape)
+                    
+        #print("             critic_values_:", critic_values_.shape, " critic_values:", critic_values.shape)
+
+
+        targets = rewards + self.gamma*critic_values_*(1.0-dones)
+        deltas =  targets - critic_values
+
+        action_array = np.zeros((n, self.n_actions))
+        action_array[np.arange(n), actions] = 1
+
+        #print("learn_batch: states:", states.shape, " deltas:", deltas.shape, " action_arrays:", action_array.shape,
+        #            " tagets:", targets.shape)
+
+        actor_metrics = self.actor.train_on_batch([states, deltas], action_array)
+        critic_metrics = self.critic.train_on_batch(states, targets)
+        
+        return actor_metrics, critic_metrics
+
     def learn_batches(self, mb_size, state, action, reward, state_, done, tau=1.0, shuffle=True):
         # make sure data is np arrays
         state = np.array(state)
@@ -97,3 +124,21 @@ class Agent(object):
             critic_metrics = self.critic.train_on_batch(state[i:i+mb_size], target[i:i+mb_size])
         
         return actor_metrics, critic_metrics
+        
+    def run_episode(self, env, learn = False):
+        done = False
+        observation = env.reset()
+        score = 0.0
+        record = []
+        actor_metrics, critic_metrics = None, None
+        while not done:
+            action = self.choose_action(observation)
+            observation_, reward, done, info = env.step(action)
+            record.append((observation, action, reward, observation_, 1.0 if done else 0.0, info))
+            if learn:
+                actor_metrics, critic_metrics = self.learn(observation, action, reward, observation_, done)
+                actor_metrics, critic_metrics = actor_metrics.history["loss"], critic_metrics.history["loss"]
+            observation = observation_
+            score += reward
+        return score, record, actor_metrics, critic_metrics
+

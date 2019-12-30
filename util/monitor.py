@@ -20,6 +20,11 @@ class Monitor(object):
         self.Server = None
         self.PlotAttributes = self.parse_plot_attributes(plot_attrs)
         
+    def reset(self):
+        self.Labels = set()
+        self.Data = []
+        self.NextSave = self.SaveInterval        
+        
     def parse_plot_attributes(self, plot_attrs):
         parsed = {}
         for label, spec in plot_attrs.items():
@@ -66,7 +71,7 @@ class Monitor(object):
             self.NextSave = self.SaveInterval
 
     def data_as_table(self):
-        labels = list(self.Labels)
+        labels = sorted(list(self.Labels))
         rows = []
         n = len(self.Data)
         prescale = 1.0 if n < 10000 else 0.1
