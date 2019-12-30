@@ -9,6 +9,7 @@
 </head>
 
 <body>
+    <p id="message"></p>
     <div id="chart_div" style="width: 900px; height: 500px;"></div>
 
     <script>
@@ -26,14 +27,22 @@
             {
                 var labels = data.labels;
                 var rows = data.data;
+                if( rows.length > 0 && labels.length > 0 )
+                {
+                        var data_table = new google.visualization.DataTable();
+                        var i;
+                        for( i = 0; i < labels.length; i++ )
+                            data_table.addColumn("number", labels[i]);
                 
-                var data_table = new google.visualization.DataTable();
-                var i;
-                for( i = 0; i < labels.length; i++ )
-                    data_table.addColumn("number", labels[i]);
+                        data_table.addRows(rows);
+                        c.draw(data_table, options);
+                        document.getElementById("message").innerHTML = "";
+                }
+                else
+                {
+                        document.getElementById("message").innerHTML = "No data received";
+                }
                 
-                data_table.addRows(rows);
-                c.draw(data_table, options);
             }
         };
         

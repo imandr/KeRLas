@@ -3,18 +3,24 @@ from webpie import WPHandler, WPApp, HTTPServer
 
 class Monitor(object):
     
-    def __init__(self, fn):
+    def __init__(self, fn, plot_attrs = {}):
+        #
+        # plot attributes:
+        #
+        # label -> 
         self.FileName = fn
         self.Labels = set()
         self.Data = []          # [(t, data_dict),]
         self.SaveInterval = 1
         self.NextSave = self.SaveInterval
         self.Server = None
+        self.PlotAttributes = plot_attrs
         
     def start_server(self, port):
         app = App(self, static_location="static", enable_static=True)    
         self.Server = HTTPServer(port, app)
         self.Server.start()
+        return self.Server
         
     def add(self, t, data=None, **data_args):
         if data is None:    data = data_args
@@ -44,10 +50,11 @@ class Monitor(object):
 class Handler(WPHandler):
     
     def data(self, request, relpath, **args):
-        labels, rows = self.App.data()
+        labels, rows = self.App.Monitor.data_as_table()
         out = {
             "labels":labels,
-            "data":rows
+            "data":rows,
+            "attributes":self.App.Monitor.PlotAttributes
         }
         return json.dumps(out), "text/json"
         
@@ -57,6 +64,4 @@ class App(WPApp):
         WPApp.__init__(self, Handler, **args)
         self.Monitor = mon
         
-    def data(self):
-        return self.Monitor.data_as_table()
 
