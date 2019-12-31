@@ -42,13 +42,13 @@ class Agent(object):
         
         return actor, critic, policy
 
-    def choose_action(self, observation, test = False):
+    def choose_action(self, observation, test = False, epsilon=0.0):
         state = observation[np.newaxis, :]
         probabilities = self.policy.predict(state)[0]
         if test:
             action = np.argmax(probabilities)
         else:
-            action = np.random.choice(self.action_space, p=probabilities)
+            action = np.random.choice(self.action_space, p=(probabilities+epsilon)/(1.0+len(probabilities)*epsilon))
 
         return action
 
