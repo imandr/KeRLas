@@ -43,7 +43,7 @@ class MultiTrainer(object):
             self.Agent.learn_batch(x0[:j], a[:j], r[:j], x1[:j], f[:j])
         return scores, records
         
-    def train(self, num_episodes, report_interval=1, epsilon0 = 0.1, epsilon1 = 0.001):
+    def train(self, num_episodes, report_interval=1, epsilon0 = 0.01, epsilon1 = 0.001):
         epsilon = epsilon0
         depsilon = (epsilon1-epsilon0)/(num_episodes*0.5)
         score_record = []

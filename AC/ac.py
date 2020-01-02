@@ -17,6 +17,28 @@ class Agent(object):
 
         self.actor, self.critic, self.policy = self.build_actor_critic_network()
         self.action_space = [i for i in range(n_actions)]
+        
+    def save(self, path):
+        actor_weights = self.actor.get_weights()
+        weights = {
+            "actor_%05d" % (i,):    w for i, w in enumerate(actor_weights)
+        }
+        for i, w in enumerate(self.critic.layers[-1].get_weights()):
+            weights["critic_top_%05d" % (i,)] = w
+        np.savez(path, **weights)
+        
+    def load(self, path):
+        actor_weights = []
+        data = np.load(path)
+        for i, _ in enumerate(self.actor.get_weights()):
+            actor_weights.append(data["actor_%05d" % (i,)])
+            
+        critic_top_weights = []
+        for i, _ in enumerate(self.critic.layers[-1].get_weights()):
+            critic_top_weights.append(data["critic_top_%05d" % (i,)])
+        
+        self.actor.set_weights(actor_weights)
+        self.critic.layers[-1].set_weights(critic_top_weights)
 
     def build_actor_critic_network(self):
         input = Input(shape=(self.input_dims,))

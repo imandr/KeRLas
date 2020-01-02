@@ -44,31 +44,31 @@ LANDER_POLY =[
     (-14,+17), (-17,0), (-17,-10),
     (+17,-10), (+17,0), (+14,+17)
     ]
-LEG_AWAY = 20
-LEG_DOWN = 18
-LEG_W, LEG_H = 2, 8
-LEG_SPRING_TORQUE = 40
-
-SIDE_ENGINE_HEIGHT = 14.0
-SIDE_ENGINE_AWAY   = 12.0
 
 VIEWPORT_W = 600
 VIEWPORT_H = 400
 
-class ContactDetector(contactListener):
-    def __init__(self, env):
-        contactListener.__init__(self)
-        self.env = env
-    def BeginContact(self, contact):
-        if self.env.lander==contact.fixtureA.body or self.env.lander==contact.fixtureB.body:
-            self.env.game_over = True
-        for i in range(2):
-            if self.env.legs[i] in [contact.fixtureA.body, contact.fixtureB.body]:
-                self.env.legs[i].ground_contact = True
-    def EndContact(self, contact):
-        for i in range(2):
-            if self.env.legs[i] in [contact.fixtureA.body, contact.fixtureB.body]:
-                self.env.legs[i].ground_contact = False
+W = VIEWPORT_W/SCALE
+H = VIEWPORT_H/SCALE
+
+#
+# gym env params:
+#
+# action dvx dvy dangle domega
+# 0 [ 0.00020729 -0.02566236  0.001715   -0.00040367]
+# 1 [-0.01091307 -0.02545288 -0.0040379   0.04226915]
+# 2 [0.00108743 0.01240228 0.00188269 0.00055057]
+# 3 [ 1.22302026e-02 -2.60260999e-02 -1.13840215e-05 -4.84604426e-02]
+#
+# g: -0.026
+# main engine: dvy = 0.012
+# side: dvx: 0.012, domega = 0.045
+#
+
+G = 0.026
+MAIN_ENGINE_DV = 0.038
+SIDE_ENGINE_DV = 0.012
+SIDE_ENGINE_DW = 0.045
 
 class LunarLander(gym.Env):
     metadata = {
@@ -108,134 +108,38 @@ class LunarLander(gym.Env):
         return [seed]
 
     def _destroy(self):
-        if not self.moon: return
-        self.world.contactListener = None
-        self._clean_particles(True)
-        self.world.DestroyBody(self.moon)
-        self.moon = None
-        self.world.DestroyBody(self.lander)
-        self.lander = None
-        self.world.DestroyBody(self.legs[0])
-        self.world.DestroyBody(self.legs[1])
+        pass
 
     def reset(self):
-        self._destroy()
-        self.world.contactListener_keepref = ContactDetector(self)
-        self.world.contactListener = self.world.contactListener_keepref
         self.game_over = False
         self.prev_shaping = None
 
-        W = VIEWPORT_W/SCALE
-        H = VIEWPORT_H/SCALE
+        y = H*0.9
+        x = 0.0
+        vy = self.np_random.uniform(-MAIN_ENGINE_DV, MAIN_ENGINE_DV)
+        vx = self.np_random.uniform(-SIDE_ENGINE_DV, SIDE_ENGINE_DV)
+        w = self.np_random.uniform(-SIDE_ENGINE_DW, MAIN_ENGINE_DW)
+        f = 0.0
 
-        # terrain
-        CHUNKS = 11
-        height = self.np_random.uniform(0, H/2, size=(CHUNKS+1,) )
-        chunk_x  = [W/(CHUNKS-1)*i for i in range(CHUNKS)]
-        self.helipad_x1 = chunk_x[CHUNKS//2-1]
-        self.helipad_x2 = chunk_x[CHUNKS//2+1]
-        self.helipad_y  = H/4
-        height[CHUNKS//2-2] = self.helipad_y
-        height[CHUNKS//2-1] = self.helipad_y
-        height[CHUNKS//2+0] = self.helipad_y
-        height[CHUNKS//2+1] = self.helipad_y
-        height[CHUNKS//2+2] = self.helipad_y
-        smooth_y = [0.33*(height[i-1] + height[i+0] + height[i+1]) for i in range(CHUNKS)]
+        self.prev_shaping = \
+            - 10*np.sqrt(x**2 + y**2) \
+            - 10*np.sqrt(vx**2 + vy**2) \
+            - 10*abs(f) - 10*abs(w)
 
-        self.moon = self.world.CreateStaticBody( shapes=edgeShape(vertices=[(0, 0), (W, 0)]) )
-        self.sky_polys = []
-        for i in range(CHUNKS-1):
-            p1 = (chunk_x[i],   smooth_y[i])
-            p2 = (chunk_x[i+1], smooth_y[i+1])
-            self.moon.CreateEdgeFixture(
-                vertices=[p1,p2],
-                density=0,
-                friction=0.1)
-            self.sky_polys.append( [p1, p2, (p2[0],H), (p1[0],H)] )
-
-        self.moon.color1 = (0.0,0.0,0.0)
-        self.moon.color2 = (0.0,0.0,0.0)
-
-        initial_y = VIEWPORT_H/SCALE
-        self.lander = self.world.CreateDynamicBody(
-            position = (VIEWPORT_W/SCALE/2, initial_y),
-            angle=0.0,
-            fixtures = fixtureDef(
-                shape=polygonShape(vertices=[ (x/SCALE,y/SCALE) for x,y in LANDER_POLY ]),
-                density=5.0,
-                friction=0.1,
-                categoryBits=0x0010,
-                maskBits=0x001,  # collide only with ground
-                restitution=0.0) # 0.99 bouncy
-                )
-        self.lander.color1 = (0.5,0.4,0.9)
-        self.lander.color2 = (0.3,0.3,0.5)
-        self.lander.ApplyForceToCenter( (
-            self.np_random.uniform(-INITIAL_RANDOM, INITIAL_RANDOM),
-            self.np_random.uniform(-INITIAL_RANDOM, INITIAL_RANDOM)
-            ), True)
-
-        self.legs = []
-        for i in [-1,+1]:
-            leg = self.world.CreateDynamicBody(
-                position = (VIEWPORT_W/SCALE/2 - i*LEG_AWAY/SCALE, initial_y),
-                angle = (i*0.05),
-                fixtures = fixtureDef(
-                    shape=polygonShape(box=(LEG_W/SCALE, LEG_H/SCALE)),
-                    density=1.0,
-                    restitution=0.0,
-                    categoryBits=0x0020,
-                    maskBits=0x001)
-                )
-            leg.ground_contact = False
-            leg.color1 = (0.5,0.4,0.9)
-            leg.color2 = (0.3,0.3,0.5)
-            rjd = revoluteJointDef(
-                bodyA=self.lander,
-                bodyB=leg,
-                localAnchorA=(0, 0),
-                localAnchorB=(i*LEG_AWAY/SCALE, LEG_DOWN/SCALE),
-                enableMotor=True,
-                enableLimit=True,
-                maxMotorTorque=LEG_SPRING_TORQUE,
-                motorSpeed=+0.3*i  # low enough not to jump back into the sky
-                )
-            if i==-1:
-                rjd.lowerAngle = +0.9 - 0.5  # Yes, the most esoteric numbers here, angles legs have freedom to travel within
-                rjd.upperAngle = +0.9
-            else:
-                rjd.lowerAngle = -0.9
-                rjd.upperAngle = -0.9 + 0.5
-            leg.joint = self.world.CreateJoint(rjd)
-            self.legs.append(leg)
-
-        self.drawlist = [self.lander] + self.legs
-
-        return self.step(np.array([0,0]) if self.continuous else 0)[0]
-
-    def _create_particle(self, mass, x, y, ttl):
-        p = self.world.CreateDynamicBody(
-            position = (x,y),
-            angle=0.0,
-            fixtures = fixtureDef(
-                shape=circleShape(radius=2/SCALE, pos=(0,0)),
-                density=mass,
-                friction=0.1,
-                categoryBits=0x0100,
-                maskBits=0x001,  # collide only with ground
-                restitution=0.3)
-                )
-        p.ttl = ttl
-        self.particles.append(p)
-        self._clean_particles(False)
-        return p
-
-    def _clean_particles(self, all):
-        while self.particles and (all or self.particles[0].ttl<0):
-            self.world.DestroyBody(self.particles.pop(0))
+        return np.array([x, y, vx, vy, f, w])
+        
+    DELTAS = [  # dvx, dvy, dw
+        np.array([0.0, 0.0, 0.0]),
+        np.array([-SIDE_ENGINE_DV, 0.0, SIDE_ENGINE_DW]),
+        np.array([SIDE_ENGINE_DV, 0.0, -SIDE_ENGINE_DW])
+        
+    ]
 
     def step(self, action):
         assert self.action_space.contains(action), "%r (%s) invalid " % (action,type(action))
+
+        c, s = math.cos()
+
 
         # Engines
         tip  = (math.sin(self.lander.angle), math.cos(self.lander.angle))

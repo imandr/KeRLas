@@ -12,19 +12,21 @@ env_names = {
     "cartpole": "CartPole-v1"
 }
 
-opts, args = getopt.getopt(sys.argv[1:], "t:vn:g:")
+opts, args = getopt.getopt(sys.argv[1:], "t:vn:g:m:l:s:w:")
 opts = dict(opts)
 test_interval = opts.get("-t")
 num_tests = opts.get("-n", 10)
 do_render = "-v" in opts
 gamma = float(opts.get("-g", 0.99))
+n_copies = int(opts.get("-m", 10))
+load_from = opts.get("-l", opts.get("-w"))
+save_to = opts.get("-s", opts.get("-w"))
 
 if test_interval is not None:   test_interval = int(test_interval)
 if num_tests is not None:   num_tests = int(num_tests)
 env_name = env_names[args[0]]
 
 
-n_copies = 10
 
 num_episodes = 10000
 monitor = Monitor("monitor.csv")
@@ -39,25 +41,29 @@ observation_shape = env.observation_space.shape
 assert len(observation_shape) == 1
 observation_dim = observation_shape[0]
 
+if load_from is not None:
+    pretrain_episodes = 20
+    agents = [Agent(observation_dim, num_actions, 0.00001, 0.00005, gamma=gamma) for _ in range(n_copies)]
+    score_records = [[] for _ in range(n_copies)]
 
-pretrain_episodes = 20
-agents = [Agent(observation_dim, num_actions, 0.00001, 0.00005, gamma=gamma) for _ in range(n_copies)]
-score_records = [[] for _ in range(n_copies)]
+    for i, agent in enumerate(agents):
+        for t in range(pretrain_episodes):
+            score, _, _, _ = agent.run_episode(env, learn=True)
+            score_records[i].append(score)
+            #monitor.add(t, data = {"score_%d" % (i,): score})
+        print ("agent:", i, "  mean score:", np.mean(score_records[i]))
 
-for i, agent in enumerate(agents):
-    for t in range(pretrain_episodes):
-        score, _, _, _ = agent.run_episode(env, learn=True)
-        score_records[i].append(score)
-        #monitor.add(t, data = {"score_%d" % (i,): score})
-    print ("agent:", i, "  mean score:", np.mean(score_records[i]))
+    mean_scores = sorted([(np.mean(record), i) for i, record in enumerate(score_records)], reverse=True)
+    print("Pre-train scores:")
+    for s, i in mean_scores:
+        print (s)
 
-mean_scores = sorted([(np.mean(record), i) for i, record in enumerate(score_records)], reverse=True)
-print("Pre-train scores:")
-for s, i in mean_scores:
-    print (s)
-
-_, ibest = mean_scores[0]
-agent = agents[ibest]
+    _, ibest = mean_scores[0]
+    agent = agents[ibest]
+else:
+    agent = Agent(observation_dim, num_actions, 0.00001, 0.00005, gamma=gamma)
+    agent.load(load_from)
+    print("Agent weights loaded from:", load_from)
 
 #
 # 2. Multi-train the best agent
@@ -70,6 +76,8 @@ envs = [gym.make(env_name) for _ in range(n_copies)]
 trainer = MultiTrainer(agent, envs)
 score_smoother = Smoothie(0.01)
 
+best_test_score = None
+
 monitor.reset()
 next_test = test_interval
 for t, score in trainer.train(num_episodes, report_interval=10):
@@ -79,6 +87,9 @@ for t, score in trainer.train(num_episodes, report_interval=10):
     
     if next_test is not None and t >= next_test:
         min_score, avg_score, max_score = trainer.test(num_tests, render=do_render)
+        if best_test_score is None: best_test_score = avg_score
+        if avg_score > best_test_score and save_to is not None:
+            agent.save(save_to)
         monitor.add(t, test_score_min = min_score, test_score_avg = avg_score, test_score_max = max_score)
         next_test += test_interval
 
