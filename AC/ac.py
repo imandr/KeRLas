@@ -65,13 +65,12 @@ class Agent(object):
         return actor, critic, policy
 
     def choose_action(self, observation, test = False, epsilon=0.0):
-        state = observation[np.newaxis, :]
-        probabilities = self.policy.predict(state)[0]
+        probs = self.policy.predict(observation[np.newaxis,:])[0]
         if test:
             action = np.argmax(probabilities)
         else:
-            action = np.random.choice(self.action_space, p=(probabilities+epsilon)/(1.0+len(probabilities)*epsilon))
-
+            probs = (probs+epsilon)/(1.0+len(probs)*epsilon)
+            action = np.random.choice(self.action_space, p=)
         return action
 
     def learn(self, state, action, reward, state_, done):
