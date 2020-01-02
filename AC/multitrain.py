@@ -41,7 +41,7 @@ observation_shape = env.observation_space.shape
 assert len(observation_shape) == 1
 observation_dim = observation_shape[0]
 
-if load_from is not None:
+if load_from is None:
     pretrain_episodes = 20
     agents = [Agent(observation_dim, num_actions, 0.00001, 0.00005, gamma=gamma) for _ in range(n_copies)]
     score_records = [[] for _ in range(n_copies)]
@@ -87,9 +87,10 @@ for t, score in trainer.train(num_episodes, report_interval=10):
     
     if next_test is not None and t >= next_test:
         min_score, avg_score, max_score = trainer.test(num_tests, render=do_render)
-        if best_test_score is None: best_test_score = avg_score
-        if avg_score > best_test_score and save_to is not None:
+        if (best_test_score is None or avg_score > best_test_score) and save_to is not None:
+            best_test_score = avg_score
             agent.save(save_to)
+            print("Agent weights saved to:", save_to)
         monitor.add(t, test_score_min = min_score, test_score_avg = avg_score, test_score_max = max_score)
         next_test += test_interval
 

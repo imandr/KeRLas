@@ -70,7 +70,7 @@ class Agent(object):
             action = np.argmax(probabilities)
         else:
             probs = (probs+epsilon)/(1.0+len(probs)*epsilon)
-            action = np.random.choice(self.action_space, p=)
+            action = np.random.choice(self.action_space, p=probs)
         return action
 
     def learn(self, state, action, reward, state_, done):
