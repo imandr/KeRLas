@@ -82,11 +82,12 @@ monitor.reset()
 next_test = test_interval
 for t, score in trainer.train(num_episodes, report_interval=10):
     min_score, score_ma, max_score = score_smoother.update(score)
-    print(t, score, min_score, score_ma, max_score)
+    print("Training: episodes=%d score: min:%.3f, average:%.3f, max:%.3f" % (t, min_score, score_ma, max_score))
     monitor.add(t, train_score_ma = score_ma, train_score_min=min_score, train_score_max=max_score, train_score=score)
     
     if next_test is not None and t >= next_test:
         min_score, avg_score, max_score = trainer.test(num_tests, render=do_render)
+        print("Testing:              score: min:%.3f, average:%.3f, max:%.3f" % (min_score, avg_score, max_score))
         if (best_test_score is None or avg_score > best_test_score) and save_to is not None:
             best_test_score = avg_score
             agent.save(save_to)
