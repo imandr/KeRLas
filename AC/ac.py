@@ -6,7 +6,8 @@ import numpy as np
 
 class Agent(object):
     def __init__(self, input_dims, n_actions, alpha, beta, gamma=0.99,
-                 layer1_size=1024, layer2_size=512):
+                critic_skew = 0.5,
+                layer1_size=1024, layer2_size=512):
         self.gamma = gamma
         self.alpha = alpha
         self.beta = beta
@@ -14,6 +15,7 @@ class Agent(object):
         self.fc1_dims = layer1_size
         self.fc2_dims = layer2_size
         self.n_actions = n_actions
+        self.critic_skew = critic_skew
 
         self.actor, self.critic, self.policy = self.build_actor_critic_network()
         self.action_space = [i for i in range(n_actions)]
@@ -57,8 +59,13 @@ class Agent(object):
         actor = Model(input=[input, delta], output=[probs])
         actor.compile(optimizer=Adam(lr=self.alpha), loss=custom_loss)
         
+        def skewed_loss(y_, y):
+            delta = y_ - y
+            delta = (delta + K.abs(delta)*self.critic_skew)/(1.0+self.critic_skew)
+            return K.mean(delta*delta, axis=-1)
+        
         critic = Model(input=[input], output=[values])
-        critic.compile(optimizer=Adam(lr=self.beta), loss="mse")
+        critic.compile(optimizer=Adam(lr=self.beta), loss=skewed_loss)
         
         policy = Model(input=[input], output=[probs])
         

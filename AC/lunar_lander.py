@@ -275,10 +275,10 @@ class LunarLander(gym.Env):
             self.lander.ApplyLinearImpulse( (-ox*SIDE_ENGINE_POWER*s_power, -oy*SIDE_ENGINE_POWER*s_power), impulse_pos, True)
 
         t0=time.time()
-        print(self.lander.linearVelocity, self.lander.angularVelocity)
+        #print(self.lander.linearVelocity, self.lander.angularVelocity)
         self.world.Step(1.0/FPS, 6*30, 2*30)
-        print (time.time() - t0)
-        print(self.lander.linearVelocity, self.lander.angularVelocity)
+        #print (time.time() - t0)
+        #print(self.lander.linearVelocity, self.lander.angularVelocity)
         
         pos = self.lander.position
         vel = self.lander.linearVelocity
