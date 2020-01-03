@@ -1,6 +1,6 @@
 from lunar_lander_simple import LunarLander, FPS
 from lunar_lander import LunarLander, FPS
-import random, time
+import random, time, getopt
 import numpy as np
 
 np.set_printoptions(precision=3, suppress=True)

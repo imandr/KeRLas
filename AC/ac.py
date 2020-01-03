@@ -6,7 +6,7 @@ import numpy as np
 
 class Agent(object):
     def __init__(self, input_dims, n_actions, alpha, beta, gamma=0.99,
-                critic_skew = 0.5,
+                critic_skew = 0.0,
                 layer1_size=1024, layer2_size=512):
         self.gamma = gamma
         self.alpha = alpha
@@ -19,36 +19,33 @@ class Agent(object):
 
         self.actor, self.critic, self.policy = self.build_actor_critic_network()
         self.action_space = [i for i in range(n_actions)]
+        self.all_layers = []
         
     def save(self, path):
-        actor_weights = self.actor.get_weights()
-        weights = {
-            "actor_%05d" % (i,):    w for i, w in enumerate(actor_weights)
-        }
-        for i, w in enumerate(self.critic.layers[-1].get_weights()):
-            weights["critic_top_%05d" % (i,)] = w
+        weights = {}
+        for i, l in enumerate(self.all_layers):
+            for j, w in l.get_weights():
+                weights["w_%d_%d" % (i, j)] = w
         np.savez(path, **weights)
         
     def load(self, path):
-        actor_weights = []
         data = np.load(path)
-        for i, _ in enumerate(self.actor.get_weights()):
-            actor_weights.append(data["actor_%05d" % (i,)])
-            
-        critic_top_weights = []
-        for i, _ in enumerate(self.critic.layers[-1].get_weights()):
-            critic_top_weights.append(data["critic_top_%05d" % (i,)])
-        
-        self.actor.set_weights(actor_weights)
-        self.critic.layers[-1].set_weights(critic_top_weights)
+        for i, l in enumerate(self.all_layers):
+            weights = [data["w_%d_%d" % (i, j)] for j, _ in enumerate(l.get_weights())]
+            l.set_weights(weights)
 
     def build_actor_critic_network(self):
         input = Input(shape=(self.input_dims,))
-        delta = Input(shape=[1])
         dense1 = Dense(self.fc1_dims, activation='relu', bias_initializer='zeros')(input)
         dense2 = Dense(self.fc2_dims, activation='relu', bias_initializer='zeros')(dense1)
-        probs = Dense(self.n_actions, activation='softmax', bias_initializer='zeros')(dense2)
-        values = Dense(1, activation='linear', bias_initializer='zeros')(dense2)
+        
+        dense3 = Dense(self.fc2_dims//10, activation='relu', bias_initializer='zeros')(dense2)
+        probs = Dense(self.n_actions, activation='softmax', bias_initializer='zeros')(dense3)
+
+        dense4 = Dense(self.fc2_dims//10, activation='relu', bias_initializer='zeros')(dense2)
+        values = Dense(1, activation='linear', bias_initializer='zeros')(dense4)
+        
+        self.all_layers = [dense1, dense2, dense3, dense4, probs, values]
 
         def custom_loss(y_true, y_pred):
             out = K.clip(y_pred, 1e-8, 1-1e-8)
@@ -56,6 +53,7 @@ class Agent(object):
 
             return K.sum(-log_lik*delta)
             
+        delta = Input(shape=[1])
         actor = Model(input=[input, delta], output=[probs])
         actor.compile(optimizer=Adam(lr=self.alpha), loss=custom_loss)
         
@@ -74,7 +72,7 @@ class Agent(object):
     def choose_action(self, observation, test = False, epsilon=0.0):
         probs = self.policy.predict(observation[np.newaxis,:])[0]
         if test:
-            action = np.argmax(probabilities)
+            action = np.argmax(probs)
         else:
             probs = (probs+epsilon)/(1.0+len(probs)*epsilon)
             action = np.random.choice(self.action_space, p=probs)
