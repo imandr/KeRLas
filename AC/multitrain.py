@@ -12,8 +12,9 @@ env_names = {
     "cartpole": "CartPole-v1"
 }
 
-opts, args = getopt.getopt(sys.argv[1:], "t:vn:g:m:l:s:w:")
+opts, args = getopt.getopt(sys.argv[1:], "t:vn:g:m:l:s:w:r:")
 opts = dict(opts)
+report_interval = int(opts.get("-r", 10))
 test_interval = opts.get("-t")
 num_tests = opts.get("-n", 10)
 do_render = "-v" in opts
@@ -29,7 +30,42 @@ env_name = env_names[args[0]]
 
 
 num_episodes = 10000
-monitor = Monitor("monitor.csv")
+monitor = Monitor("monitor.csv", [
+    [
+        {
+            "label":        "min test score",
+            "line_width":   1.0
+        },
+        {
+            "label":        "average test score"
+        },
+        {
+            "label":        "max test score",
+            "line_width":   1.0
+        }
+    ],
+    [
+        {
+            "label":        "min train score",
+            "line_width":   1.0
+        },
+        {
+            "label":        "train score"
+        },
+        {
+            "label":        "max train score",
+            "line_width":   1.0
+        }
+    ],
+    [
+        {
+            "label":        "train score"
+        },
+        {
+            "label":        "average test score"
+        }
+    ]
+])
 monitor.start_server(8080)
 
 #
@@ -48,7 +84,7 @@ if load_from is None:
 
     for i, agent in enumerate(agents):
         for t in range(pretrain_episodes):
-            score, _, _, _ = agent.run_episode(env, learn=True)
+            score, _ = agent.run_episode(env, learn=True)
             score_records[i].append(score)
             #monitor.add(t, data = {"score_%d" % (i,): score})
         print ("agent:", i, "  mean score:", np.mean(score_records[i]))
@@ -80,10 +116,14 @@ best_test_score = None
 
 monitor.reset()
 next_test = test_interval
-for t, score in trainer.train(num_episodes, report_interval=10):
+for t, score in trainer.train(num_episodes, report_interval=report_interval):
     min_score, score_ma, max_score = score_smoother.update(score)
     print("Training: episodes=%d score: min:%.3f, average:%.3f, max:%.3f" % (t, min_score, score_ma, max_score))
-    monitor.add(t, train_score_ma = score_ma, train_score_min=min_score, train_score_max=max_score, train_score=score)
+    monitor.add(t, {
+        "train score":      score, 
+        "min train score":  min_score, 
+        "max train score":  max_score
+    })
     
     if next_test is not None and t >= next_test:
         min_score, avg_score, max_score = trainer.test(num_tests, render=do_render)
@@ -92,6 +132,10 @@ for t, score in trainer.train(num_episodes, report_interval=10):
             best_test_score = avg_score
             agent.save(save_to)
             print("Agent weights saved to:", save_to)
-        monitor.add(t, test_score_min = min_score, test_score_avg = avg_score, test_score_max = max_score)
+        monitor.add(t, {
+            "min test score":       min_score, 
+            "average test score":   avg_score, 
+            "max test score":       max_score
+        })
         next_test += test_interval
 

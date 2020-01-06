@@ -63,7 +63,7 @@ class MultiTrainer(object):
         env = self.Envs[0]
         scores = np.zeros((num_episodes,))
         for t in range(num_episodes):
-            score, record, _, _ = self.Agent.run_episode(env, test=False, render=render)
+            score, record = self.Agent.run_episode(env, test=False, render=render)
             scores[t] = score
         return min(scores), np.mean(scores), max(scores)
         

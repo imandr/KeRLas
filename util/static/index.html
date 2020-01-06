@@ -10,62 +10,105 @@
 
 <body>
     <p id="message"></p>
-    <div id="charts"></div>
+    <div id="plots"></div>
     <div id="chart_div" style="width: 900px; height: 500px;"></div>
 
     <script>
-        var charts = {};                // id -> chart object
-        var options = {
-                interpolateNulls: true
+        var dims = "width: 900px; height: 500px";
+        var common_options = {
+                interpolateNulls: true,
+                pointSize: 5
         }
         
-        var chart = null;
+        var charts = [];
+        
+        function transpose(lst)
+        {
+            // convert list of columns into list of rows
+            // assume all columns are of the same length
+            var rows = [];
+            var nrows = lst[0].length;
+            var i;
+            for( i = 0; i<nrows; i++ )
+                rows.push([]);
+            lst.forEach( (column, icolumn) => {
+                column.forEach( (v, irow) => {
+                    rows[irow].push(v);
+                });
+            });
+            return rows;
+        }
 
         var receiver = {
             data_received: function (data, c)
             {
                 var labels = data.labels;
-                var rows = data.data;
-                var desc = data.plot_desc;
+                var columns = data.columns;
+                var plot_descs = data.plots;
                 var plots = [];
                 
-                if( false )
+                if( labels.length > 0 )
                 {
-                    desc.forEach( (subplot_desc, i) => {
-                            var series = [];
-                            Object.entries(subplot_desc).forEach(([label, options]) => {
-                                    var series_options = {};
-                                    if( "line_width" in options )
-                                            series_options.lineWidth = options.line_width;
-                                    if( "color" in attrs )
-                                            series_options.color = options.color;
-                                    if( "marker_style" in options )
-                                    {
-                                            series_options.pointShape = options.marker_style;
-                                            series_options.pointVisible = true;
-                                    }
-                                    else
-                                            series_options.pointVisible = false;
-                                    series.push({
-                                            "label": label,
-                                            "options": series_options
-                                    });
-                            });
-                            plots.push(series);
+                    plot_descs.forEach( (plot_desc, iplot) => {
+                        var series = [];
+                        plot_desc.forEach( (series_desc, iseries) => {
+                                var series_options = {};
+                                if( "line_width" in series_desc )
+                                        series_options.lineWidth = series_desc.line_width;
+                                if( "color" in series_desc )
+                                        series_options.color = series_desc.color;
+                                if( "marker_style" in series_desc )
+                                {
+                                        series_options.pointShape = series_desc.marker_style;
+                                        series_options.pointsVisible = true;
+                                }
+                                else
+                                        series_options.pointsVisible = false;
+                                series.push({
+                                        "label": series_desc.label,
+                                        "options": series_options
+                                });
+                        });
+                        plots.push(series);
                     });
                     
-                }
-                
-                if( rows.length > 0 && labels.length > 0 )
-                {
-                        var data_table = new google.visualization.DataTable();
-                        var i;
-                        for( i = 0; i < labels.length; i++ )
-                            data_table.addColumn("number", labels[i]);
-                
-                        data_table.addRows(rows);
-                        c.draw(data_table, options);
-                        document.getElementById("message").innerHTML = "";
+                    //
+                    // create missing divs and plots
+                    //
+                    plots.forEach( (plot, iplot) => {
+                        var plot_div_id = "plot_"+iplot;
+                        var o = document.getElementById(plot_div_id);
+                        if ( o == null )
+                        {
+                            var main = document.getElementById("plots");
+                            var new_div = document.createElement("div");
+                            new_div.setAttribute("id", plot_div_id);
+                            new_div.setAttribute("style", "width: 900px; height: 500px");
+                            main.appendChild(new_div);
+                            var chart = new google.visualization.LineChart(new_div);
+                            charts.push(chart);
+                        }
+                    });
+
+                    //
+                    // update plots with data
+                    //
+                    plots.forEach( (series_list, iplot) => {
+                        var data = new google.visualization.DataTable();
+                        var chart = charts[iplot];
+                        data.addColumn("number", "t");
+                        var series_options = {};
+                        var cols = [columns["t"]];
+                        series_list.forEach( (series, iseries) => {
+                            series_options[iseries] = series.options;
+                            data.addColumn("number", series.label);
+                            cols.push(columns[series.label]);
+                        });
+                        data.addRows(transpose(cols));
+                        var options = common_options;           // better make a copy ?
+                        options.series = series_options;
+                        chart.draw(data, options);
+                    });
                 }
                 else
                 {
