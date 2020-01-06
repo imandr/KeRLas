@@ -3,7 +3,7 @@ from webpie import WPHandler, WPApp, HTTPServer
 
 class Monitor(object):
     
-    def __init__(self, fn, plot_desc = []):
+    def __init__(self, fn, title="Monitor", plots = []):
         #
         # plot_list: [ plot_desc, ... ]
         # plot_desc: [ series, ... ]
@@ -22,7 +22,8 @@ class Monitor(object):
         self.SaveInterval = 1
         self.NextSave = self.SaveInterval
         self.Server = None
-        self.PlotDesc = plot_desc
+        self.PlotDesc = plots
+        self.Title = title
         
     def reset(self):
         self.Labels = set()
@@ -77,7 +78,8 @@ class Handler(WPHandler):
         out = {
             "labels":       sorted(list(columns.keys())),
             "columns":      columns,
-            "plots":        self.App.Monitor.PlotDesc
+            "plots":        self.App.Monitor.PlotDesc,
+            "title":        self.App.Monitor.Title
         }
         return json.dumps(out), "text/json"
         

@@ -12,7 +12,7 @@ env_names = {
     "cartpole": "CartPole-v1"
 }
 
-opts, args = getopt.getopt(sys.argv[1:], "t:vn:g:m:l:s:w:r:")
+opts, args = getopt.getopt(sys.argv[1:], "t:vn:g:m:l:s:w:r:T:p:")
 opts = dict(opts)
 report_interval = int(opts.get("-r", 10))
 test_interval = opts.get("-t")
@@ -22,6 +22,8 @@ gamma = float(opts.get("-g", 0.99))
 n_copies = int(opts.get("-m", 10))
 load_from = opts.get("-l", opts.get("-w"))
 save_to = opts.get("-s", opts.get("-w"))
+title = opts.get("-T")
+port = int(opts.get("-p", 8080))
 
 if test_interval is not None:   test_interval = int(test_interval)
 if num_tests is not None:   num_tests = int(num_tests)
@@ -30,7 +32,9 @@ env_name = env_names[args[0]]
 
 
 num_episodes = 10000
-monitor = Monitor("monitor.csv", [
+monitor = Monitor("monitor.csv", 
+    title = title,
+    plots=[
     [
         {
             "label":        "min test score",
@@ -66,7 +70,7 @@ monitor = Monitor("monitor.csv", [
         }
     ]
 ])
-monitor.start_server(8080)
+monitor.start_server(port)
 
 #
 # 1. Pre-train multiple agents and choose the best one

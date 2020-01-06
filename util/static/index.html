@@ -9,6 +9,7 @@
 </head>
 
 <body>
+    <h1 id="title"></h1>
     <p id="message"></p>
     <div id="plots"></div>
     <div id="chart_div" style="width: 900px; height: 500px;"></div>
@@ -46,6 +47,8 @@
                 var columns = data.columns;
                 var plot_descs = data.plots;
                 var plots = [];
+                
+                document.getElementById("title").innerHTML = data.title;
                 
                 if( labels.length > 0 )
                 {
