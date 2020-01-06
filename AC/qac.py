@@ -5,7 +5,7 @@ from keras.optimizers import Adam
 import numpy as np
 import math
 
-class Agent(object):
+class QACAgent(object):
     def __init__(self, input_dims, n_actions, alpha, beta, gamma=0.99,
                 critic_skew = 0.0, qscale = 1.0,
                 layer1_size=1024, layer2_size=512):

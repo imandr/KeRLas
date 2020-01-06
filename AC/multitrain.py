@@ -1,5 +1,6 @@
 import gym
-from ac import Agent
+from ac import ACAgent
+from qac import QACAgent
 import numpy as np
 from monitor import Monitor
 from multitrainer import MultiTrainer
@@ -12,7 +13,7 @@ env_names = {
     "cartpole": "CartPole-v1"
 }
 
-opts, args = getopt.getopt(sys.argv[1:], "t:vn:g:m:l:s:w:r:T:p:")
+opts, args = getopt.getopt(sys.argv[1:], "t:vn:g:m:l:s:w:r:T:p:a:")
 opts = dict(opts)
 report_interval = int(opts.get("-r", 10))
 test_interval = opts.get("-t")
@@ -24,6 +25,15 @@ load_from = opts.get("-l", opts.get("-w"))
 save_to = opts.get("-s", opts.get("-w"))
 title = opts.get("-T")
 port = int(opts.get("-p", 8080))
+agent_class = opts.get("-a", "ac")
+
+Agent = {
+    "ac":   ACAgent,
+    "qac":   QACAgent
+}[agent_class]
+
+print ("Agent class:", Agent.__name__)
+
 
 if test_interval is not None:   test_interval = int(test_interval)
 if num_tests is not None:   num_tests = int(num_tests)
