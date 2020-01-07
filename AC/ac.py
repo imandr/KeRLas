@@ -7,7 +7,7 @@ import numpy as np
 class ACAgent(object):
     def __init__(self, input_dims, n_actions, alpha, beta, gamma=0.99,
                 critic_skew = 0.0,
-                layer1_size=1024, layer2_size=512):
+                layer1_size=512, layer2_size=256):
         self.gamma = gamma
         self.alpha = alpha
         self.beta = beta
