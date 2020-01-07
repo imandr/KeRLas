@@ -1,6 +1,6 @@
 import gym
 from ac import ACAgent
-from qac import QACAgent
+#from qac import QACAgent
 import numpy as np
 from monitor import Monitor
 from multitrainer import MultiTrainer
@@ -13,23 +13,26 @@ env_names = {
     "cartpole": "CartPole-v1"
 }
 
-opts, args = getopt.getopt(sys.argv[1:], "t:vn:g:m:l:s:w:r:T:p:a:")
+opts, args = getopt.getopt(sys.argv[1:], "t:vn:g:m:l:s:w:r:T:P:a:p:c:b:")
 opts = dict(opts)
 report_interval = int(opts.get("-r", 10))
 test_interval = opts.get("-t")
 num_tests = opts.get("-n", 10)
 do_render = "-v" in opts
 gamma = float(opts.get("-g", 0.99))
-n_copies = int(opts.get("-m", 10))
+n_copies = int(opts.get("-m", 30))
+n_pretrain = int(opts.get("-p", 10))
 load_from = opts.get("-l", opts.get("-w"))
 save_to = opts.get("-s", opts.get("-w"))
 title = opts.get("-T")
-port = int(opts.get("-p", 8080))
+port = int(opts.get("-P", 8080))
 agent_class = opts.get("-a", "ac")
+comment = opts.get("-c", "")
+batch_size = int(opts.get("-b", 10))
 
 Agent = {
     "ac":   ACAgent,
-    "qac":   QACAgent
+    #"qac":   QACAgent
 }[agent_class]
 
 print ("Agent class:", Agent.__name__)
@@ -44,6 +47,17 @@ env_name = env_names[args[0]]
 num_episodes = 10000
 monitor = Monitor("monitor.csv", 
     title = title,
+    metadata = dict(
+        gamma=gamma,
+        agent_class=Agent.__name__,
+        pretrain=n_pretrain,
+        copies=n_copies,
+        test_interval=test_interval,
+        report_interval=report_interval,
+        comment = comment,
+        environment = env_name,
+        batch_size = batch_size
+    ),
     plots=[
     [
         {
@@ -79,7 +93,8 @@ monitor = Monitor("monitor.csv",
             "label":        "average test score"
         }
     ]
-])
+]
+)
 monitor.start_server(port)
 
 #
@@ -93,8 +108,8 @@ observation_dim = observation_shape[0]
 
 if load_from is None:
     pretrain_episodes = 20
-    agents = [Agent(observation_dim, num_actions, 0.00001, 0.00005, gamma=gamma) for _ in range(n_copies)]
-    score_records = [[] for _ in range(n_copies)]
+    agents = [Agent(observation_dim, num_actions, 0.00001, 0.00005, gamma=gamma) for _ in range(n_pretrain)]
+    score_records = [[] for _ in range(n_pretrain)]
 
     for i, agent in enumerate(agents):
         for t in range(pretrain_episodes):
@@ -130,9 +145,9 @@ best_test_score = None
 
 monitor.reset()
 next_test = test_interval
-for t, score in trainer.train(num_episodes, report_interval=report_interval):
+for t, score in trainer.train(num_episodes, report_interval=report_interval, batch_size = batch_size):
     min_score, score_ma, max_score = score_smoother.update(score)
-    print("Training: episodes=%d score: min:%.3f, average:%.3f, max:%.3f" % (t, min_score, score_ma, max_score))
+    print("Training: episodes=%4d score: %.3f" % (t, score))
     monitor.add(t, {
         "train score":      score, 
         "min train score":  min_score, 
@@ -141,7 +156,7 @@ for t, score in trainer.train(num_episodes, report_interval=report_interval):
     
     if next_test is not None and t >= next_test:
         min_score, avg_score, max_score = trainer.test(num_tests, render=do_render)
-        print("Testing:              score: min:%.3f, average:%.3f, max:%.3f" % (min_score, avg_score, max_score))
+        print("Testing:                score: min:%.3f, average:%.3f, max:%.3f" % (min_score, avg_score, max_score))
         if (best_test_score is None or avg_score > best_test_score) and save_to is not None:
             best_test_score = avg_score
             agent.save(save_to)

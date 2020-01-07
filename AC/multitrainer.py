@@ -7,7 +7,7 @@ class MultiTrainer(object):
         self.Agent = agent
         self.Envs = envs
 
-    def run_episode(self, epsilon=0.0):
+    def run_episode(self, epsilon=0.0, batch_size=10):
         n = len(self.Envs)
         dones = [0.0]*n
         observations = [env.reset() for env in self.Envs]
@@ -40,17 +40,17 @@ class MultiTrainer(object):
                     scores[i] += reward
                     dones[i] = done
             #print("run_episode: actions:", np.array(a), np.array(a).dtype)
-            self.Agent.learn_batch(x0[:j], a[:j], r[:j], x1[:j], f[:j])
+            self.Agent.learn_batch(x0[:j], a[:j], r[:j], x1[:j], f[:j], batch_size=batch_size)
         return scores, records
         
-    def train(self, num_episodes, report_interval=1, epsilon0 = 0.01, epsilon1 = 0.001):
+    def train(self, num_episodes, report_interval=1, epsilon0 = 0.01, epsilon1 = 0.001, batch_size = 10):
         epsilon = epsilon0
         depsilon = (epsilon1-epsilon0)/(num_episodes*0.5)
         score_record = []
         next_report = report_interval
         avg_score = None
         for t in range(num_episodes):
-            scores, records = self.run_episode(epsilon)
+            scores, records = self.run_episode(epsilon, batch_size = batch_size)
             epsilon = max(epsilon1, epsilon+depsilon)
             avg_score = np.mean(scores)
             score_record.append(avg_score)

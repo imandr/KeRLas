@@ -6,10 +6,23 @@
     <script>
         google.charts.load('current', {packages: ['corechart', 'line']});
     </script>
+        
+        <style type="text/css">
+                .metadata td {
+                        padding: 2px 20px;
+                }
+                table.metadata {
+                        border: gray 1px solid;
+                }
+        </style>
 </head>
 
 <body>
     <h1 id="title"></h1>
+    <div id="meta_div">
+            <span id="time"></span> <script>document.getElementById("time").innerHTML=""+new Date()</script>
+            <pre id="metadata"></pre>
+    </div>
     <p id="message"></p>
     <div id="plots"></div>
     <div id="chart_div" style="width: 900px; height: 500px;"></div>
@@ -112,6 +125,20 @@
                         options.series = series_options;
                         chart.draw(data, options);
                     });
+                    
+                    //
+                    // Show metadata
+                    //
+                    var dump = '<table class="metadata">';
+                    for( k in data.metadata )
+                    {
+                            var v = data.metadata[k];
+                            dump += "<tr><td>" + k + "</td>" 
+                                    + "<td>" + v + "</td>" 
+                                    + "</tr>";
+                    }
+                    dump += "</table>"
+                    document.getElementById("metadata").innerHTML = dump;
                 }
                 else
                 {
