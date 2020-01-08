@@ -61,6 +61,14 @@ monitor = Monitor("monitor.csv",
     plots=[
     [
         {
+            "label":        "train score"
+        },
+        {
+            "label":        "average test score"
+        }
+    ],
+    [
+        {
             "label":        "min test score",
             "line_width":   1.0
         },
@@ -83,14 +91,6 @@ monitor = Monitor("monitor.csv",
         {
             "label":        "max train score",
             "line_width":   1.0
-        }
-    ],
-    [
-        {
-            "label":        "train score"
-        },
-        {
-            "label":        "average test score"
         }
     ]
 ]
