@@ -2,7 +2,7 @@ from keras import backend as K
 from keras.layers import Dense, Input
 from keras.models import Model
 from keras.optimizers import Adam
-from keras import regularizers
+#from keras import regularizers
 import numpy as np
 
 class ACAgent(object):
