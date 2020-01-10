@@ -37,31 +37,31 @@ class ACAgent(object):
 
     def build_actor_critic_network(self):
         input = Input(shape=(self.input_dims,))
-        dense1 = Dense(self.fc1_dims, activation='relu',
-            kernel_regularizer=regularizers.l2(0.0001),
-            bias_regularizer=regularizers.l2(0.0001),
+        dense1 = Dense(self.fc1_dims, activation='softplus'
+            #,kernel_regularizer=regularizers.l2(0.0001)
+            #,bias_regularizer=regularizers.l2(0.0001)
             )(input)
-        dense2 = Dense(self.fc2_dims, activation='relu',
-            kernel_regularizer=regularizers.l2(0.0001),
-            bias_regularizer=regularizers.l2(0.0001),
+        dense2 = Dense(self.fc2_dims, activation='softplus'
+            #,kernel_regularizer=regularizers.l2(0.0001)
+            #,bias_regularizer=regularizers.l2(0.0001)
             )(dense1)
         
-        dense3 = Dense(self.fc2_dims//10, activation='relu',
-            kernel_regularizer=regularizers.l2(0.001),
-            bias_regularizer=regularizers.l2(0.001),
+        dense3 = Dense(self.fc2_dims//5, activation='softplus'
+            #,kernel_regularizer=regularizers.l2(0.0001)
+            #,bias_regularizer=regularizers.l2(0.0001)
             )(dense2)
-        probs = Dense(self.n_actions, activation='softmax',
-            kernel_regularizer=regularizers.l2(0.001),
-            bias_regularizer=regularizers.l2(0.001),
+        probs = Dense(self.n_actions, activation='softmax'
+            #,kernel_regularizer=regularizers.l2(0.0001)
+            #,bias_regularizer=regularizers.l2(0.0001)
             )(dense3)
 
-        dense4 = Dense(self.fc2_dims//10, activation='relu',
-            kernel_regularizer=regularizers.l2(0.001),
-            bias_regularizer=regularizers.l2(0.001),
+        dense4 = Dense(self.fc2_dims//5, activation='softplus'
+            #,kernel_regularizer=regularizers.l2(0.0001)
+            #,bias_regularizer=regularizers.l2(0.0001)
             )(dense2)
-        values = Dense(1, activation='linear',
-            kernel_regularizer=regularizers.l2(0.001),
-            bias_regularizer=regularizers.l2(0.001),
+        values = Dense(1, activation='linear'
+            #,kernel_regularizer=regularizers.l2(0.0001)
+            #,bias_regularizer=regularizers.l2(0.0001)
             )(dense4)
         
         self.all_layers = [dense1, dense2, dense3, dense4, probs, values]
