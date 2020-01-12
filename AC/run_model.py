@@ -1,5 +1,5 @@
 import gym
-from ac import Agent
+from ac import ACAgent as Agent
 import numpy as np
 from monitor import Monitor
 from smoothie import Smoothie
@@ -26,7 +26,8 @@ observation_dim = observation_shape[0]
 agent = Agent(observation_dim, num_actions, 0.00001, 0.00005)
 if load_from:
     agent.load(load_from)
-    print("Agent weights loaded from:", load_from)
+    print("\n\nAgent weights loaded from:", load_from,"\n\n")
 
 for t in range(num_tests):
-    agent.run_episode(env, test=True, render=do_render)
+    score, _ = agent.run_episode(env, test=True, render=do_render)
+    print(score)

@@ -65,7 +65,7 @@ monitor = Monitor("monitor.csv",
         },
         {
             "label":        "average test score"
-        }
+        },
         {
             "label":        "min train score",
             "line_width":   1.0
@@ -101,7 +101,13 @@ observation_shape = env.observation_space.shape
 assert len(observation_shape) == 1
 observation_dim = observation_shape[0]
 
-if load_from is None:
+agent = Agent(observation_dim, num_actions, 0.00001, 0.00005, gamma=gamma)
+
+if load_from:    
+    agent.load(load_from)
+    print("\n<<<\n<<< Agent weights loaded from:", load_from, "\n<<<\n")
+    
+elif n_pretrain > 0:
     pretrain_episodes = 20
     agents = [Agent(observation_dim, num_actions, 0.00001, 0.00005, gamma=gamma) for _ in range(n_pretrain)]
     score_records = [[] for _ in range(n_pretrain)]
@@ -120,10 +126,12 @@ if load_from is None:
 
     _, ibest = mean_scores[0]
     agent = agents[ibest]
-else:
-    agent = Agent(observation_dim, num_actions, 0.00001, 0.00005, gamma=gamma)
-    agent.load(load_from)
-    print("Agent weights loaded from:", load_from)
+
+if False and save_to:
+    agent.save(save_to)
+    print("\n>>> Agent weights saved to:", save_to,"\n")
+    
+    
 
 #
 # 2. Multi-train the best agent
@@ -155,11 +163,23 @@ for t, score in trainer.train(num_episodes, report_interval=report_interval, bat
         if (best_test_score is None or avg_score > best_test_score) and save_to is not None:
             best_test_score = avg_score
             agent.save(save_to)
-            print("Agent weights saved to:", save_to)
-        monitor.add(t, {
-            "min test score":       min_score, 
-            "average test score":   avg_score, 
-            "max test score":       max_score
-        })
+            print("\n>>>\n>>> Agent weights saved to:", save_to,"\n>>>\n")
+            
+            #
+            # verify
+            #
+            
+            agent_1 = Agent(observation_dim, num_actions, 0.00001, 0.00005, gamma=gamma)
+            agent_1.load(save_to)
+            tr = MultiTrainer(agent_1, envs)
+            new_min, new_avg, new_max = tr.test(num_tests, render=False)
+            print ("test scores after save/load:", new_min, new_avg, new_max)
+            
+        if avg_score > -500:
+            monitor.add(t, {
+                "min test score":       min_score, 
+                "average test score":   avg_score, 
+                "max test score":       max_score
+            })
         next_test += test_interval
 

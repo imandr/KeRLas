@@ -1,4 +1,3 @@
-from lunar_lander_simple import LunarLander, FPS
 from lunar_lander import LunarLander, FPS
 import random, time, getopt
 import numpy as np

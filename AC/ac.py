@@ -18,14 +18,15 @@ class ACAgent(object):
         self.n_actions = n_actions
         self.critic_skew = critic_skew
 
+        self.all_layers = []
         self.actor, self.critic, self.policy = self.build_actor_critic_network()
         self.action_space = [i for i in range(n_actions)]
-        self.all_layers = []
         
     def save(self, path):
         weights = {}
         for i, l in enumerate(self.all_layers):
-            for j, w in l.get_weights():
+            #print("save: layer:", l.name, type(l))
+            for j, w in enumerate(l.get_weights()):
                 weights["w_%d_%d" % (i, j)] = w
         np.savez(path, **weights)
         
@@ -34,38 +35,20 @@ class ACAgent(object):
         for i, l in enumerate(self.all_layers):
             weights = [data["w_%d_%d" % (i, j)] for j, _ in enumerate(l.get_weights())]
             l.set_weights(weights)
+    
+    Activation = "relu"
 
     def build_actor_critic_network(self):
         input = Input(shape=(self.input_dims,))
-        dense1 = Dense(self.fc1_dims, activation='softplus'
-            #,kernel_regularizer=regularizers.l2(0.0001)
-            #,bias_regularizer=regularizers.l2(0.0001)
-            )(input)
-        dense2 = Dense(self.fc2_dims, activation='softplus'
-            #,kernel_regularizer=regularizers.l2(0.0001)
-            #,bias_regularizer=regularizers.l2(0.0001)
-            )(dense1)
+        dense1 = Dense(self.fc1_dims, activation=self.Activation, name="dense1")(input)
+        dense2 = Dense(self.fc2_dims, activation=self.Activation, name="dense2")(dense1)
         
-        dense3 = Dense(self.fc2_dims//5, activation='softplus'
-            #,kernel_regularizer=regularizers.l2(0.0001)
-            #,bias_regularizer=regularizers.l2(0.0001)
-            )(dense2)
-        probs = Dense(self.n_actions, activation='softmax'
-            #,kernel_regularizer=regularizers.l2(0.0001)
-            #,bias_regularizer=regularizers.l2(0.0001)
-            )(dense3)
+        dense3 = Dense(self.fc2_dims//5, activation=self.Activation, name="dense3")(dense2)
+        probs = Dense(self.n_actions, activation='softmax', name="probs")(dense3)
 
-        dense4 = Dense(self.fc2_dims//5, activation='softplus'
-            #,kernel_regularizer=regularizers.l2(0.0001)
-            #,bias_regularizer=regularizers.l2(0.0001)
-            )(dense2)
-        values = Dense(1, activation='linear'
-            #,kernel_regularizer=regularizers.l2(0.0001)
-            #,bias_regularizer=regularizers.l2(0.0001)
-            )(dense4)
+        dense4 = Dense(self.fc2_dims//5, activation=self.Activation, name="dense4")(dense2)
+        values = Dense(1, activation='linear', name="values")(dense4)
         
-        self.all_layers = [dense1, dense2, dense3, dense4, probs, values]
-
         def custom_loss(y_true, y_pred):
             out = K.clip(y_pred, 1e-8, 1-1e-8)
             log_lik = y_true*K.log(out)
@@ -73,18 +56,22 @@ class ACAgent(object):
             return K.sum(-log_lik*delta)
             
         delta = Input(shape=[1])
-        actor = Model(input=[input, delta], output=[probs])
+        actor = Model(inputs=[input, delta], outputs=[probs])
         actor.compile(optimizer=Adam(lr=self.alpha), loss=custom_loss)
+
+        self.all_layers = actor.layers[:]
+
+        critic = Model(inputs=[input], outputs=[values])
+        critic.compile(optimizer=Adam(lr=self.beta), loss="mse")
         
-        def skewed_loss(y_, y):
-            delta = y_ - y
-            delta = (delta + K.abs(delta)*self.critic_skew)/(1.0+self.critic_skew)
-            return K.mean(delta*delta, axis=-1)
+        for l in critic.layers:
+            if not l in self.all_layers:
+                self.all_layers.append(l)
+                
+        #for l in self.all_layers:
+        #    print("layer", l.name)
         
-        critic = Model(input=[input], output=[values])
-        critic.compile(optimizer=Adam(lr=self.beta), loss=skewed_loss)
-        
-        policy = Model(input=[input], output=[probs])
+        policy = Model(inputs=[input], outputs=[probs])
         
         return actor, critic, policy
 
@@ -173,7 +160,7 @@ class ACAgent(object):
         
         return actor_metrics, critic_metrics
         
-    def run_episode(self, env, learn = False, test = False, render=False):
+    def run_episode(self, env, learn=False, test=False, render=False):
         done = False
         observation = env.reset()
         if render:

@@ -16,10 +16,18 @@ class HunterEnv(object):
         self.NextSpawn = random.randint(self.SPAWN_MIN, self.SPAWN_MAX)
         self.Hunter = None
         self.Actions = np.arange(9)
+        self.LastAction = 4
+        self.ObservationDim = 9+1
         
     def scan(self, x, y):
         window = self.Field[x+self.VR-self.VR:x+self.VR+self.VR+1, y+self.VR-self.VR:y+self.VR+self.VR+1].copy()
         return window.reshape((-1,))
+        
+    def observation(self):
+        obs = np.enmpty((self.ObservationDim,))
+        obs[0:9] = self.scan(*self.Hunter)
+        obs[9] = self.LastAction
+        return obs
         
     def free_cell(self, n_attempts=None):
         i = 0
@@ -43,8 +51,7 @@ class HunterEnv(object):
         self.spawn()
         self.NextSpawn = random.randint(self.SPAWN_MIN, self.SPAWN_MAX)
         self.Hunter = self.free_cell()
-        scan = self.scan(*self.Hunter)
-        return scan
+        return self.observation()
         
     def step(self, action):
         x, y = self.Hunter
@@ -57,8 +64,10 @@ class HunterEnv(object):
             reward += 1.0
             self.Field[x+self.VR,y+self.VR] -= 1.0
         self.Hunter = x, y
-        return self.scan(x, y)
+        return self.observation()
         
+    def render(self):
+        pass
         
     
         
