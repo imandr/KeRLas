@@ -1,14 +1,11 @@
 from keras import backend as K
-from keras.layers import Dense, Input, Reshape, LSTM, concatenate
+from keras.layers import Dense, Input, concatenate
 from keras.models import Model
 from keras.optimizers import Adam
 #from keras import regularizers
 import numpy as np
 
-import os
-os.environ['KMP_DUPLICATE_LIB_OK']='True'
-
-class ACAgent(object):
+class ACRecurrentAgent(object):
     def __init__(self, input_dims, n_actions, alpha, beta, gamma=0.99,
                 layer1_size=1024, layer2_size=512):
         self.gamma = gamma
@@ -17,11 +14,16 @@ class ACAgent(object):
         self.input_dims = input_dims
         self.fc1_dims = layer1_size
         self.fc2_dims = layer2_size
+        self.base_dims = layer1_size
+        self.recurrent_dims = layer2_size
         self.n_actions = n_actions
-
-        self.all_layers = []
-        self.actor, self.critic, self.policy = self.build_actor_critic_network()
         self.action_space = [i for i in range(n_actions)]
+
+        self.rec_value = None
+        self.prev_rec = None
+        self.prev_state = None
+
+        self.build_recurrent_network()
         
     def save(self, path):
         weights = {}
@@ -39,60 +41,101 @@ class ACAgent(object):
     
     Activation = "relu"
 
-    def build_actor_critic_network(self):
-        input = Input((self.input_dims,))
-        dense1 = Dense(self.fc1_dims, activation=self.Activation, name="dense1")(input)
-        base = Dense(self.fc2_dims, activation=self.Activation, name="dense2")(dense1)
-        
-        dense3 = Dense(self.fc2_dims//5, activation=self.Activation, name="dense3")(base)
-        probs = Dense(self.n_actions, activation='softmax', name="probs")(dense3)
+    def build_recurrent_network(self):
+        obs = Input(shape=(self.input_dims,))
+        rec_in = Input((self.recurrent_dims,))
 
-        dense4 = Dense(self.fc2_dims//5, activation=self.Activation, name="dense4")(base)
-        values = Dense(1, activation='linear', name="values")(dense4)
+        combined = concatenate([obs, rec_in])
+
+        dense1 = Dense(self.fc1_dims, activation=self.Activation, name="dense1")(combined)
+        base = Dense(self.base_dims, activation=self.Activation, name="base")(dense1)
+        self.BModel = Model(inputs=[obs, rec_in], outputs=[base])
+
+        p_in = Input((self.base_dims,))
+        d = Dense(self.base_dims//5, activation=self.Activation, name="dense3")(p_in)
+        probs = Dense(self.n_actions, activation='softmax', name="probs")(d)
+        self.PModel = Model(inputs=[p_in], outputs=[probs])
         
+        v_in = Input((self.base_dims,))
+        d = Dense(self.fc2_dims//5, activation=self.Activation, name="dense4")(v_in)
+        values = Dense(1, activation='linear', name="values")(d)
+        self.VModel = Model(inputs=[v_in], outputs=[values])
+
+        r_in = Input((self.base_dims,))
+        d = Dense(self.recurrent_dims, activation=self.Activation, name="dense5")(r_in)
+        rec_out = Dense(self.recurrent_dims, activation='softplus', name="rec_out")(d)
+        self.RModel = Model(inputs=[r_in], outputs=[rec_out])
+        
+        #
+        # Compute models
+        #
+        this_obs = Input(shape=(self.input_dims,))
+        this_rec = Input((self.recurrent_dims,))
+        base = self.BModel([this_obs, this_rec])
+
+        self.ComputeVModel = Model(inputs=[this_obs, this_rec], outputs=[self.VModel(base)])
+        self.ComputePModel = Model(inputs=[this_obs, this_rec], outputs=[self.PModel(base), self.RModel(base)])
+        
+        #
+        # Trainable models
+        #
+        delta = Input(shape=[1])
+        prev_obs = Input(shape=(self.input_dims,))
+        this_obs = Input(shape=(self.input_dims,))
+        prev_rec = Input((self.recurrent_dims,))
+        
+        prev_base = self.BModel([prev_obs, prev_rec])
+        rec_in = self.RModel(prev_base)
+        
+        tbase = self.BModel([this_obs, rec_in])
+        
+        #
+        # trainable actor
+        #
         def custom_loss(y_true, y_pred):
             out = K.clip(y_pred, 1e-8, 1-1e-8)
             log_lik = y_true*K.log(out)
 
             return K.sum(-log_lik*delta)
             
-        delta = Input(shape=[1])
-        actor = Model(inputs=[input, delta], outputs=[probs])
-        actor.compile(optimizer=Adam(lr=self.alpha), loss=custom_loss)
+        self.TrainableActor = Model(
+                    inputs=[prev_obs, prev_rec, this_obs, delta], 
+                    outputs=[self.PModel(tbase)])
+                    
+        self.TrainableActor.compile(optimizer=Adam(lr=self.alpha), loss=custom_loss)
 
-        self.all_layers = actor.layers[:]
+        #
+        #.trainable critic
+        #
+        self.TrainableCritic = Model(
+            inputs=[prev_obs, prev_rec, this_obs], 
+            outputs=[self.VModel(tbase)]
+        )
+        self.TrainableCritic.compile(optimizer=Adam(lr=self.beta), loss="mse")
 
-        critic = Model(inputs=[input], outputs=[values])
-        critic.compile(optimizer=Adam(lr=self.beta), loss="mse")
-        
-        for l in critic.layers:
-            if not l in self.all_layers:
-                self.all_layers.append(l)
-                
-        #for l in self.all_layers:
-        #    print("layer", l.name)
-        
-        policy = Model(inputs=[input], outputs=[probs])
-        
-        return actor, critic, policy
-        
+        self.all_layers = self.BModel.layers + self.RModel.layers + self.VModel.layers + self.PModel.layers
+
     def reset(self):
-        self.actor.reset_states()
+        self.prev_state = None
+        self.rec_value = np.zeros((1, self.recurrent_dims))
 
-    def choose_action(self, observation, test = False, epsilon=0.01):
-        probs = self.policy.predict(observation[np.newaxis,:])[0]
+    def step(self, state, test = False, epsilon=0.0):
+        probs, rec_out = self.ComputePModel.predict([state[np.newaxis,:], self.rec_value])
+        self.prev_rec = self.rec_value
+        self.rec_value = rec_out
+        probs = probs[0]
         if test:
             action = np.argmax(probs)
         else:
-            probs = (probs+epsilon/len(probs))/(1.0+epsilon)
+            probs = (probs+epsilon)/(1.0+len(probs)*epsilon)
             action = np.random.choice(self.action_space, p=probs)
         return action
         
     def learn(self, state, action, reward, state_, done):
         state = state[np.newaxis,:]
         state_ = state_[np.newaxis,:]
-        critic_value_ = self.critic.predict(state_)
-        critic_value = self.critic.predict(state)
+        critic_value_ = self.ComputeVModel.predict([state_, self.rec_value])
+        critic_value = self.ComputeVModel.predict([state, self.prev_rec])
 
         target = reward + self.gamma*critic_value_*(1-int(done))
         delta =  target - critic_value
@@ -100,9 +143,17 @@ class ACAgent(object):
         actions = np.zeros([1, self.n_actions])
         actions[np.arange(1), action] = 1
 
-        actor_metrics = self.actor.train_on_batch([state, delta], actions)
-        critic_metrics = self.critic.train_on_batch(state, target)
-        
+        prev_state = state if self.prev_state is None else self.prev_state
+
+        actor_metrics = self.TrainableActor.train_on_batch(
+            [prev_state, self.prev_rec, state, delta], 
+            actions
+        ) 
+        critic_metrics = self.TrainableCritic.train_on_batch(
+            [prev_state, self.prev_rec, state], 
+            target
+        )
+        self.prev_state = state
         return actor_metrics, critic_metrics
 
     def learn_batch(self, states, actions, rewards, states_, dones, batch_size = 10):
@@ -164,7 +215,7 @@ class ACAgent(object):
         
         return actor_metrics, critic_metrics
         
-    def run_episode(self, env, learn=False, test=False, render=False, epsilon=0.01):
+    def run_episode(self, env, learn=False, test=False, render=False):
         done = False
         observation = env.reset()
         self.reset()
@@ -174,8 +225,7 @@ class ACAgent(object):
         record = []
         actor_metrics, critic_metrics = None, None
         while not done:
-            action = self.choose_action(observation, test=test, epsilon=epsilon)
-            #print("run_episode: obs:", observation, "  action:", action)
+            action = self.step(observation, test)
             observation_, reward, done, info = env.step(action)
             if render:
                 env.render()
@@ -185,5 +235,4 @@ class ACAgent(object):
             observation = observation_
             score += reward
         return score, record
-
 

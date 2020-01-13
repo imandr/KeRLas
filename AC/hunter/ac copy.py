@@ -1,15 +1,13 @@
 from keras import backend as K
-from keras.layers import Dense, Input, Reshape, LSTM, concatenate
+from keras.layers import Dense, Input, LSTM
 from keras.models import Model
 from keras.optimizers import Adam
 #from keras import regularizers
 import numpy as np
 
-import os
-os.environ['KMP_DUPLICATE_LIB_OK']='True'
-
 class ACAgent(object):
     def __init__(self, input_dims, n_actions, alpha, beta, gamma=0.99,
+                critic_skew = 0.0,
                 layer1_size=1024, layer2_size=512):
         self.gamma = gamma
         self.alpha = alpha
@@ -18,6 +16,7 @@ class ACAgent(object):
         self.fc1_dims = layer1_size
         self.fc2_dims = layer2_size
         self.n_actions = n_actions
+        self.critic_skew = critic_skew
 
         self.all_layers = []
         self.actor, self.critic, self.policy = self.build_actor_critic_network()
@@ -40,9 +39,11 @@ class ACAgent(object):
     Activation = "relu"
 
     def build_actor_critic_network(self):
-        input = Input((self.input_dims,))
+        input = Input(shape=(self.input_dims,))
         dense1 = Dense(self.fc1_dims, activation=self.Activation, name="dense1")(input)
-        base = Dense(self.fc2_dims, activation=self.Activation, name="dense2")(dense1)
+        dense2 = Dense(self.fc2_dims, activation=self.Activation, name="dense2")(dense1)
+        dense2_reshaped = Reshape((1, self.fc2_dims))(dense2)
+        base = LSTM(self.fc2_dims, stateful=True, return_sequences=False, unroll=True)(dense2_reshaped)
         
         dense3 = Dense(self.fc2_dims//5, activation=self.Activation, name="dense3")(base)
         probs = Dense(self.n_actions, activation='softmax', name="probs")(dense3)
@@ -75,16 +76,13 @@ class ACAgent(object):
         policy = Model(inputs=[input], outputs=[probs])
         
         return actor, critic, policy
-        
-    def reset(self):
-        self.actor.reset_states()
 
-    def choose_action(self, observation, test = False, epsilon=0.01):
+    def choose_action(self, observation, test = False, epsilon=0.0):
         probs = self.policy.predict(observation[np.newaxis,:])[0]
         if test:
             action = np.argmax(probs)
         else:
-            probs = (probs+epsilon/len(probs))/(1.0+epsilon)
+            probs = (probs+epsilon)/(1.0+len(probs)*epsilon)
             action = np.random.choice(self.action_space, p=probs)
         return action
         
@@ -100,8 +98,8 @@ class ACAgent(object):
         actions = np.zeros([1, self.n_actions])
         actions[np.arange(1), action] = 1
 
-        actor_metrics = self.actor.train_on_batch([state, delta], actions)
-        critic_metrics = self.critic.train_on_batch(state, target)
+        actor_metrics = self.actor.fit([state, delta], actions, verbose=0)
+        critic_metrics = self.critic.fit(state, target, verbose=0)
         
         return actor_metrics, critic_metrics
 
@@ -164,18 +162,16 @@ class ACAgent(object):
         
         return actor_metrics, critic_metrics
         
-    def run_episode(self, env, learn=False, test=False, render=False, epsilon=0.01):
+    def run_episode(self, env, learn=False, test=False, render=False):
         done = False
         observation = env.reset()
-        self.reset()
         if render:
             env.render()
         score = 0.0
         record = []
         actor_metrics, critic_metrics = None, None
         while not done:
-            action = self.choose_action(observation, test=test, epsilon=epsilon)
-            #print("run_episode: obs:", observation, "  action:", action)
+            action = self.choose_action(observation, test)
             observation_, reward, done, info = env.step(action)
             if render:
                 env.render()
@@ -185,5 +181,4 @@ class ACAgent(object):
             observation = observation_
             score += reward
         return score, record
-
 

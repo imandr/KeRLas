@@ -8,10 +8,20 @@ from smoothie import Smoothie
 from tqdm import tqdm, trange
 import getopt, sys
 
-env_names = {
-    "lander":   "LunarLander-v2",
-    "cartpole": "CartPole-v1"
-}
+def make_env(name):
+    
+    gym_names = {
+        "lander":   "LunarLander-v2",
+        "cartpole": "CartPole-v1"
+    }
+
+    from hunter import HunterEnv
+    
+    if name in gym_names:
+        return gym.make(gym_names[name])
+    elif name == "hunter":
+        return HunterEnv()
+
 
 opts, args = getopt.getopt(sys.argv[1:], "t:vn:g:m:l:s:w:r:T:P:a:p:c:b:")
 opts = dict(opts)
@@ -40,9 +50,7 @@ print ("Agent class:", Agent.__name__)
 
 if test_interval is not None:   test_interval = int(test_interval)
 if num_tests is not None:   num_tests = int(num_tests)
-env_name = env_names[args[0]]
-
-
+env_name = args[0]
 
 num_episodes = 10000
 monitor = Monitor("monitor.csv", 
@@ -95,7 +103,7 @@ monitor.start_server(port)
 #
 # 1. Pre-train multiple agents and choose the best one
 #
-env = gym.make(env_name)
+env = make_env(env_name)
 num_actions = env.action_space.n
 observation_shape = env.observation_space.shape
 assert len(observation_shape) == 1
@@ -139,7 +147,7 @@ if False and save_to:
 
 print("--- multi-training ---")
 
-envs = [gym.make(env_name) for _ in range(n_copies)]
+envs = [make_env(env_name) for _ in range(n_copies)]
 
 trainer = MultiTrainer(agent, envs)
 score_smoother = Smoothie(0.01)
@@ -165,15 +173,16 @@ for t, score in trainer.train(num_episodes, report_interval=report_interval, bat
             agent.save(save_to)
             print("\n>>>\n>>> Agent weights saved to:", save_to,"\n>>>\n")
             
-            #
-            # verify
-            #
+            if False:
+                #
+                # verify
+                #
             
-            agent_1 = Agent(observation_dim, num_actions, 0.00001, 0.00005, gamma=gamma)
-            agent_1.load(save_to)
-            tr = MultiTrainer(agent_1, envs)
-            new_min, new_avg, new_max = tr.test(num_tests, render=False)
-            print ("test scores after save/load:", new_min, new_avg, new_max)
+                agent_1 = Agent(observation_dim, num_actions, 0.00001, 0.00005, gamma=gamma)
+                agent_1.load(save_to)
+                tr = MultiTrainer(agent_1, envs)
+                new_min, new_avg, new_max = tr.test(num_tests, render=False)
+                print ("test scores after save/load:", new_min, new_avg, new_max)
             
         if avg_score > -500:
             monitor.add(t, {
