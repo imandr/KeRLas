@@ -135,7 +135,7 @@ class _HunterEnv(object):
         self.Frame.add(h, at=self.Hunter)
         s = Rectangle(-self.VR-0.5, self.VR+0.5, -self.VR-0.5, self.VR+0.5, filled=False).color(0.2,0.4,0.4)
         self.Frame.add(s, at=self.Hunter)
-        #time.sleep(0.01)
+        time.sleep(0.03)
         self.Viewer.render()
         #print("scan: position:", self.Hunter, "  out:", self.scan(*self.Hunter))
         #time.sleep(10)

@@ -10,13 +10,12 @@ class Smoothie(object):
         if self.Low is None:
             self.Low = self.High = x
         if x < self.Low:
-            delta = x - self.Low
             self.Low = x
-            self.High += (1.0-self.Alpha)*delta
+            self.High += (x-self.High)*self.Alpha*2
         elif x > self.High:
             delta = x - self.High
             self.High = x
-            self.Low += (1.0-self.Alpha)*delta
+            self.Low += (x-self.Low)*self.Alpha*2
         else:
             self.Low += self.Alpha*(x - self.Low)
             self.High += self.Alpha*(x - self.High)
