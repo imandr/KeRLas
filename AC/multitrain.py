@@ -1,33 +1,45 @@
 import gym
-from ac import ACAgent
+from acbrain import ACBrain
 #from qac import QACAgent
+from agent import Agent
 import numpy as np
 from monitor import Monitor
 from multitrainer import MultiTrainer
 from smoothie import Smoothie
 from tqdm import tqdm, trange
 import getopt, sys
+from envs import make_env
 
-def make_env(name):
+def make_agent(input_dims, n_actions, alpha, beta, gamma):
+    brain = ACBrain(input_dims, n_actions, alpha, beta, gamma=gamma)
+    return Agent(brain, n_actions)
+
+def pretrain(num_agents):
+    pretrain_episodes = num_episodes
+    agents = [make_agent(observation_dim, num_actions, 0.00001, 0.00005, gamma) for _ in range(num_agents)]
+    pretrain_episodes = 20
+    while len(agents) > 1:
+        score_records = [[] for _ in agents]
+        for i, agent in enumerate(agents):
+            for t in range(pretrain_episodes):
+                score, _ = agent.run_episode(env, learn=True, epsilon=0.1)
+                score_records[i].append(score)
+            print ("agent:", i, "  mean score:", np.mean(score_records[i]))
+        mean_scores = sorted([(np.mean(record), i) for i, record in enumerate(score_records)], reverse=True)
+        k = max(1, len(mean_scores)//2)
+        best = mean_scores[:k]
+        print("Pre-train scores:")
+        for s, i in mean_scores:
+            print (i, s)
+        agents = [agents[j] for _, j in best]
+    return agents[0]
     
-    gym_names = {
-        "lander":   "LunarLander-v2",
-        "cartpole": "CartPole-v1"
-    }
-
-    from hunter import HunterEnv
-    
-    if name in gym_names:
-        return gym.make(gym_names[name])
-    elif name == "hunter":
-        return HunterEnv()
-
 
 opts, args = getopt.getopt(sys.argv[1:], "t:vn:g:m:l:s:w:r:T:P:a:p:c:b:")
 opts = dict(opts)
 report_interval = int(opts.get("-r", 10))
 test_interval = opts.get("-t")
-num_tests = opts.get("-n", 10)
+num_tests = int(opts.get("-n", 10))
 do_render = "-v" in opts
 gamma = float(opts.get("-g", 0.99))
 n_copies = int(opts.get("-m", 30))
@@ -39,13 +51,6 @@ port = int(opts.get("-P", 8080))
 agent_class = opts.get("-a", "ac")
 comment = opts.get("-c", "")
 batch_size = int(opts.get("-b", 10))
-
-Agent = {
-    "ac":   ACAgent,
-    #"qac":   QACAgent
-}[agent_class]
-
-print ("Agent class:", Agent.__name__)
 
 
 if test_interval is not None:   test_interval = int(test_interval)
@@ -109,31 +114,14 @@ observation_shape = env.observation_space.shape
 assert len(observation_shape) == 1
 observation_dim = observation_shape[0]
 
-agent = Agent(observation_dim, num_actions, 0.00001, 0.00005, gamma=gamma)
 
 if load_from:    
+    agent = make_agent(observation_dim, num_actions, 0.00001, 0.00005, gamma)
     agent.load(load_from)
     print("\n<<<\n<<< Agent weights loaded from:", load_from, "\n<<<\n")
     
 elif n_pretrain > 0:
-    pretrain_episodes = 20
-    agents = [Agent(observation_dim, num_actions, 0.00001, 0.00005, gamma=gamma) for _ in range(n_pretrain)]
-    score_records = [[] for _ in range(n_pretrain)]
-
-    for i, agent in enumerate(agents):
-        for t in range(pretrain_episodes):
-            score, _ = agent.run_episode(env, learn=True)
-            score_records[i].append(score)
-            #monitor.add(t, data = {"score_%d" % (i,): score})
-        print ("agent:", i, "  mean score:", np.mean(score_records[i]))
-
-    mean_scores = sorted([(np.mean(record), i) for i, record in enumerate(score_records)], reverse=True)
-    print("Pre-train scores:")
-    for s, i in mean_scores:
-        print (s)
-
-    _, ibest = mean_scores[0]
-    agent = agents[ibest]
+    agent = pretrain(n_pretrain)
 
 if False and save_to:
     agent.save(save_to)

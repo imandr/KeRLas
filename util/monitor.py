@@ -62,6 +62,14 @@ class Monitor(object):
                 for l in labels:
                     columns[l].append(row.get(l))
         return columns
+        
+    def data_as_rows(self):
+        out = []
+        for t, dct in self.Data:
+            d = dct.copy()
+            d["t"] = t
+            out.append(d)
+        return out
             
     def save(self):
         return
@@ -76,9 +84,11 @@ class Handler(WPHandler):
     
     def data(self, request, relpath, **args):
         columns = self.App.Monitor.data_as_columns()
+        rows = self.App.Monitor.data_as_rows()
         out = {
             "labels":       sorted(list(columns.keys())),
             "columns":      columns,
+            "rows":         rows,
             "plots":        self.App.Monitor.PlotDesc,
             "title":        self.App.Monitor.Title,
             "metadata":     self.App.Monitor.Meta
@@ -96,23 +106,23 @@ if __name__ == "__main__":
     import time, random
     
     m = Monitor("/dev/null", 
-        [
+        title = "Plots demo",
+        plots = [
             [
                 {
                     "label":    "x",
-                    "marker_style": "star",
-                    "line_width": 0.2
+                    "line_width": 0.5
                 },
                 {
                     "label":    "y",
-                    "line_width":   0.0,
-                    "marker_style": "circle"
+                    "line_width":   1.0,
+                    "marker_style": "Circle"
                 }
             ],
             [
                 {
                     "label":    "x+y",
-                    "color":    "yellow"
+                    "color":    "gray"
                 },
                 {
                     "label":    "x-y",

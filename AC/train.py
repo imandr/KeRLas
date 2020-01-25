@@ -1,6 +1,6 @@
 import gym, getopt, sys
-#from ac import Agent
-from ac_suboptimal import ACSuboptimalAgent as Agent
+from ac import ACAgent as Agent
+#from ac_suboptimal import ACSuboptimalAgent as Agent
 import numpy as np
 from monitor import Monitor
 from singletrainer import SingleTrainer
@@ -42,19 +42,32 @@ monitor = Monitor("monitor.csv",
         environment = env.__class__.__name__
     ),
     plots=[
-    [
-        {
-            "label":        "min train score",
-            "line_width":   1.0
-        },
-        {
-            "label":        "train score"
-        },
-        {
-            "label":        "max train score",
-            "line_width":   1.0
-        }
-    ]
+        [
+            {
+                "label":        "min test score",
+                "line_width":   1.0
+            },
+            {
+                "label":        "average test score",
+            },
+            {
+                "label":        "max test score",
+                "line_width":   1.0
+            }
+        ],
+        [
+            {
+                "label":        "min train score",
+                "line_width":   1.0
+            },
+            {
+                "label":        "train score"
+            },
+            {
+                "label":        "max train score",
+                "line_width":   1.0
+            }
+        ]
 ]
 )
 monitor.start_server(8080)
@@ -74,5 +87,13 @@ for t, score in trainer.train(10000, report_interval=report_interval):
     if t >= next_test:
         min_test, mean_test, max_test = trainer.test(10, render=render)
         print("Test after %d train episodes:" % (t,), "    min, mean, max score:", min_test, mean_test, max_test)
+        monitor.add(t,
+            {
+                "min test score":   min_test,
+                "max test score":   max_test,
+                "average test score":   mean_test
+            }
+        )
         next_test += test_interval
+        
     
