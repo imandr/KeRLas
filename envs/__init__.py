@@ -1,6 +1,6 @@
 import gym
 
-def make_env(name):
+def make_env(name, *params):
     
     gym_aliases = {
         "lander":   "LunarLander-v2",
@@ -9,12 +9,15 @@ def make_env(name):
 
     if name == "hunter":
         from .hunter import HunterEnv
-        return HunterEnv()
+        return HunterEnv(*params)
     
     elif name == "elevator":
         from .elevator import Elevator
-        return Elevator()
+        return Elevator(*params)
+    
+    elif name == "tanks":
+        from .tanks import Tanks
+        return Tanks(*params)
     
     name = gym_aliases.get(name, name)
-    return gym.make(name)
-
+    return gym.make(name, *params)

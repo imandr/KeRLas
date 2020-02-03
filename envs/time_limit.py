@@ -16,11 +16,14 @@ class TimeLimit:
         if self.T is not None:
             self.T -= 1
             if self.T <= 0:
-                info['TimeLimit.truncated'] = not done
+                #info['TimeLimit.truncated'] = not done
                 info["TimeLimit.original_reward"] = reward
                 if self.TimeoutReward is not None:
                     reward = self.TimeoutReward
-                done = True
+                if isinstance(done, bool):
+                    done = True
+                else:
+                    done[:] = True
         return observation, reward, done, info
         
     def __getattr__(self, name):
